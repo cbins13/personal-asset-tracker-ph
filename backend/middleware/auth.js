@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 // Middleware to verify JWT token
 export const authenticateToken = (req, res, next) => {
@@ -24,4 +25,29 @@ export const requireAuth = (req, res, next) => {
     return next();
   }
   return res.status(401).json({ error: 'Authentication required' });
+};
+
+// Middleware to require admin role (session-based)
+export const requireAdmin = async (req, res, next) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const user = await User.findById(req.session.userId).select('roles');
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const roles = user.roles || [];
+    if (!roles.includes('admin')) {
+      return res.status(403).json({ error: 'Admin role required' });
+    }
+
+    req.currentUser = user;
+    next();
+  } catch (err) {
+    console.error('requireAdmin error:', err);
+    return res.status(500).json({ error: 'Failed to verify admin role' });
+  }
 };

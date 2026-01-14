@@ -203,6 +203,8 @@ router.post('/register', async (req, res) => {
         email: user.email,
         name: user.name,
         provider: user.provider,
+        roles: user.roles,
+        permissions: user.permissions,
       },
     });
   } catch (error) {
@@ -259,6 +261,8 @@ router.post('/login', async (req, res) => {
         name: user.name,
         picture: user.picture,
         provider: user.provider,
+        roles: user.roles,
+        permissions: user.permissions,
       },
     });
   } catch (error) {
@@ -301,6 +305,8 @@ router.get('/me', async (req, res) => {
         preferences: user.preferences,
         createdAt: user.createdAt,
         lastLogin: user.lastLogin,
+        roles: user.roles,
+        permissions: user.permissions,
       },
     });
   } catch (error) {

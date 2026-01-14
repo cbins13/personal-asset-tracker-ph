@@ -16,7 +16,22 @@ interface AuthResponse {
     name: string;
     picture?: string;
     provider: string;
+    roles?: string[];
+    permissions?: string[];
   };
+}
+
+export interface UserSummary {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+  provider: string;
+  roles: string[];
+  permissions: string[];
+  isActive?: boolean;
+  createdAt?: string;
+  lastLogin?: string;
 }
 
 export async function apiRequest<T>(
@@ -87,5 +102,12 @@ export const authApi = {
 
   getCurrentUser: async (): Promise<ApiResponse<AuthResponse>> => {
     return apiRequest<AuthResponse>('/auth/me');
+  },
+};
+
+// Users API functions (admin)
+export const usersApi = {
+  getAll: async (): Promise<ApiResponse<{ users: UserSummary[] }>> => {
+    return apiRequest<{ users: UserSummary[] }>('/users');
   },
 };

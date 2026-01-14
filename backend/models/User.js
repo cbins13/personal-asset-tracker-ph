@@ -49,6 +49,15 @@ const userSchema = new mongoose.Schema(
       of: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    // Role-based access control
+    roles: {
+      type: [String],
+      default: ['user'],
+    },
+    permissions: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt

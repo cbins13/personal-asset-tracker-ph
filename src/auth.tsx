@@ -1,4 +1,4 @@
-import React, {
+import {
   createContext,
   useContext,
   useEffect,
@@ -13,6 +13,8 @@ export interface User {
   name: string
   picture?: string
   provider: string
+  roles?: string[]
+  permissions?: string[]
 }
 
 export interface AuthState {
@@ -22,6 +24,10 @@ export interface AuthState {
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
+  hasRole: (role: string) => boolean
+  hasAnyRole: (roles: string[]) => boolean
+  hasPermission: (permission: string) => boolean
+  hasAnyPermission: (permissions: string[]) => boolean
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined)
@@ -85,6 +91,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const effectiveRoles = (user?.roles && user.roles.length > 0 ? user.roles : ['user']) ?? ['user']
+  const effectivePermissions = user?.permissions ?? []
+
+  const hasRole = (role: string) => {
+    return effectiveRoles.includes(role)
+  }
+
+  const hasAnyRole = (roles: string[]) => {
+    return roles.some((role) => effectiveRoles.includes(role))
+  }
+
+  const hasPermission = (permission: string) => {
+    return effectivePermissions.includes(permission)
+  }
+
+  const hasAnyPermission = (permissions: string[]) => {
+    return permissions.some((permission) => effectivePermissions.includes(permission))
+  }
+
   const value: AuthState = {
     isAuthenticated,
     user,
@@ -92,6 +117,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     refresh,
+    hasRole,
+    hasAnyRole,
+    hasPermission,
+    hasAnyPermission,
+  }
+
+  // Show loading state while checking auth (as per TanStack Router docs)
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

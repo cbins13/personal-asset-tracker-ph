@@ -1,201 +1,186 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { authApi } from "../utils/api";
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  picture?: string;
-  provider: string;
-  preferences?: Record<string, any>;
-  createdAt?: string;
-  lastLogin?: string;
-}
+import { useState } from "react";
+import { useAuth } from "../auth";
+import logoSmall from "../assets/savvi_logo.png";
+import AnimatedContent from "../effects/AnimatedContent";
+import Sidebar from "./Sidebar";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchUserData();
-  }, []);
-
-  const fetchUserData = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const response = await authApi.getCurrentUser();
-
-      if (response.success && response.data) {
-        const authData = response.data as { user?: User };
-        if (authData.user) {
-          setUser(authData.user);
-        } else {
-          setError("User data not found");
-        }
-      } else {
-        setError(response.error || "Failed to fetch user data");
-        // Redirect to login if not authenticated
-        if (response.error === "Not authenticated" || response.error === "Authentication required") {
-          setTimeout(() => {
-            navigate({ to: "/login" });
-          }, 2000);
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const auth = useAuth();
+  const user = auth.user;
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
-      await authApi.logout();
-      localStorage.removeItem("token");
-      navigate({ to: "/login" });
+      await auth.logout();
+      navigate({ to: "/login", search: { redirect: "/dashboard" } });
     } catch (err) {
       console.error("Logout error:", err);
       // Still redirect even if logout fails
-      localStorage.removeItem("token");
-      navigate({ to: "/login" });
+      navigate({ to: "/login", search: { redirect: "/dashboard" } });
     }
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "N/A";
-    try {
-      return new Date(dateString).toLocaleString();
-    } catch {
-      return dateString;
-    }
+  const handleRefresh = async () => {
+    await auth.refresh();
   };
 
-  if (isLoading) {
+  const toggleProfileMenu = () => {
+    setIsProfileMenuOpen((prev) => !prev);
+  };
+
+  // User should always be available here since route is protected
+  if (auth.isLoading || !user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading user data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && !user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
-          <div className="text-center">
-            <div className="text-red-500 text-5xl mb-4">⚠️</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Error</h2>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <p className="text-sm text-gray-500 mb-6">Redirecting to login...</p>
-            <Link
-              to="/login"
-              className="inline-block bg-primary-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-700 transition-colors"
-            >
-              Go to Login
-            </Link>
-          </div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link to="/" className="text-2xl font-bold text-gray-900">
-                Logo
-              </Link>
-            </div>
-            <nav className="flex items-center space-x-4">
-              <Link
-                to="/"
-                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
-              >
-                Home
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
-              >
-                Logout
-              </button>
-            </nav>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar (only for authenticated users) */}
+      <Sidebar />
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Welcome back, {user?.name}!
-              </h1>
-              <p className="mt-2 text-gray-600">
-                You are successfully authenticated and your session is active.
-              </p>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center md:hidden">
+                <Link to="/" className="inline-flex items-center gap-2">
+                  <img
+                    src={logoSmall}
+                    alt="Savvi"
+                    className="h-[100px] w-[100px]"
+                  />
+                  <span className="text-lg font-semibold text-gray-900 tracking-tight">Savvi</span>
+                </Link>
+              </div>
+              <nav className="relative ml-auto flex items-center">
+                <button
+                  onClick={toggleProfileMenu}
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 border border-gray-300 overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-transform duration-150 hover:scale-105 hover:shadow-md"
+                  aria-label="Open profile menu"
+                >
+                  {user?.picture ? (
+                    <img
+                      src={user.picture}
+                      alt={user.name || user.email}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-sm font-semibold text-gray-700">
+                      {(user?.name || user?.email || "U")[0].toUpperCase()}
+                    </span>
+                  )}
+                </button>
+                {isProfileMenuOpen && (
+                  <div className="absolute right-0 top-12 w-48 bg-white border border-gray-200 rounded-md shadow-lg py-1 z-20 animate-fade-in-down">
+                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">
+                      Signed in as
+                      <div className="font-medium text-gray-800 truncate">
+                        {user?.email}
+                      </div>
+                    </div>
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      type="button"
+                    >
+                      Profile
+                    </button>
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      type="button"
+                    >
+                      Settings
+                    </button>
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      type="button"
+                      onClick={handleLogout}
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </nav>
             </div>
-            {user?.picture && (
-              <img
-                src={user.picture}
-                alt={user.name}
-                className="w-20 h-20 rounded-full border-4 border-primary-200"
-              />
-            )}
           </div>
-        </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="px-4 sm:px-6 lg:px-8 py-8 max-w-5xl mx-auto w-full">
+        {/* Welcome Section */}
+        <AnimatedContent delay={0.05} duration={0.8}>
+          <div className="bg-white shadow rounded-lg p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Welcome back, {user?.name}!
+                </h1>
+                <p className="mt-2 text-gray-600">
+                  You are successfully authenticated and your session is active.
+                </p>
+              </div>
+              {user?.picture && (
+                <img
+                  src={user.picture}
+                  alt={user.name}
+                  className="w-20 h-20 rounded-full border-4 border-primary-200"
+                />
+              )}
+            </div>
+          </div>
+        </AnimatedContent>
 
         {/* Session Status Card */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <svg
-                className="h-8 w-8 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <h3 className="text-lg font-semibold text-green-900">
-                Session Active
-              </h3>
-              <p className="text-sm text-green-700">
-                Your authentication session is valid and active.
-              </p>
+        <AnimatedContent delay={0.12} duration={0.8}>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+            <div className="flex items-center">
+              <div className="shrink-0">
+                <svg
+                  className="h-8 w-8 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-green-900">
+                  Session Active
+                </h3>
+                <p className="text-sm text-green-700">
+                  Your authentication session is valid and active.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        </AnimatedContent>
 
         {/* User Information Card */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">
-              User Information
-            </h2>
-          </div>
-          <div className="px-6 py-4">
-            <dl className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <AnimatedContent delay={0.18} duration={0.85}>
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                User Information
+              </h2>
+            </div>
+            <div className="px-6 py-4">
+              <dl className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
                 <dt className="text-sm font-medium text-gray-500">Name</dt>
                 <dd className="mt-1 text-sm text-gray-900">{user?.name || "N/A"}</dd>
@@ -219,30 +204,58 @@ export default function DashboardPage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Account Created</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  {formatDate(user?.createdAt)}
+                <dt className="text-sm font-medium text-gray-500">Roles</dt>
+                <dd className="mt-1">
+                  {user?.roles && user.roles.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {user.roles.map((role) => (
+                        <span
+                          key={role}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-800 capitalize"
+                        >
+                          {role}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-500">No roles assigned</span>
+                  )}
                 </dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Last Login</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  {formatDate(user?.lastLogin)}
+                <dt className="text-sm font-medium text-gray-500">Permissions</dt>
+                <dd className="mt-1">
+                  {user?.permissions && user.permissions.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {user.permissions.map((permission) => (
+                        <span
+                          key={permission}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-100 text-info-800"
+                        >
+                          {permission}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-500">No permissions assigned</span>
+                  )}
                 </dd>
               </div>
-            </dl>
+              </dl>
+            </div>
           </div>
-        </div>
+        </AnimatedContent>
 
         {/* Session Details Card */}
-        <div className="mt-6 bg-white shadow rounded-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Session Details
-            </h2>
-          </div>
-          <div className="px-6 py-4">
-            <div className="space-y-4">
+        <AnimatedContent delay={0.22} duration={0.85}>
+          <div className="mt-6 bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Session Details
+              </h2>
+            </div>
+            <div className="px-6 py-4">
+              <div className="space-y-4">
               <div>
                 <dt className="text-sm font-medium text-gray-500">Session Status</dt>
                 <dd className="mt-1 text-sm text-green-600 font-medium">
@@ -261,26 +274,30 @@ export default function DashboardPage() {
                   Valid for 14 days (auto-extends on activity)
                 </dd>
               </div>
+              </div>
             </div>
           </div>
-        </div>
+        </AnimatedContent>
 
         {/* Actions */}
-        <div className="mt-6 flex justify-center space-x-4">
-          <button
-            onClick={fetchUserData}
-            className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors"
-          >
-            Refresh Data
-          </button>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors"
-          >
-            Logout
-          </button>
-        </div>
+        <AnimatedContent delay={0.28} duration={0.8}>
+          <div className="mt-6 flex justify-center space-x-4">
+            <button
+              onClick={handleRefresh}
+              className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+            >
+              Refresh Data
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-red-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors"
+            >
+              Logout
+            </button>
+          </div>
+        </AnimatedContent>
       </main>
+      </div>
     </div>
   );
 }

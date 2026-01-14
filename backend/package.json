@@ -1,7 +1,7 @@
 {
   "name": "personal-asset-tracker-backend",
   "version": "1.0.0",
-  "description": "Backend server for Personal Asset Tracker",
+  "description": "Backend server for Savvi",
   "main": "server.js",
   "type": "module",
   "scripts": {

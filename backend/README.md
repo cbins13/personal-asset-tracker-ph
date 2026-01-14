@@ -1,4 +1,4 @@
-# Personal Asset Tracker - Backend Server
+# Savvi - Backend Server
 
 Express.js backend server with MongoDB Atlas integration for user authentication and data management.
 

@@ -1,10 +1,15 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import { authApi } from "../utils/api";
+import { useAuth } from "../auth";
+import logoSmall from "../assets/savvi_logo.png";
+import AnimatedContent from "../effects/AnimatedContent";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { redirect } = useSearch({ from: "/login" });
+  const auth = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -16,22 +21,15 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await authApi.login(email, password);
-
-      if (response.success && response.data) {
-        // Store token if provided
-        const authData = response.data as { token?: string; user?: any };
-        if (authData.token) {
-          localStorage.setItem("token", authData.token);
-        }
-        // Redirect to dashboard
-        navigate({ to: "/dashboard" });
-      } else {
-        setErrors({ submit: response.error || "Login failed" });
-      }
+      // Use auth.login() from context (as per TanStack Router docs)
+      await auth.login(email, password);
+      // Refresh auth state
+      await auth.refresh();
+      // Redirect to the redirect URL or dashboard
+      navigate({ to: redirect || "/dashboard" });
     } catch (error) {
       setErrors({
-        submit: error instanceof Error ? error.message : "An error occurred",
+        submit: error instanceof Error ? error.message : "Login failed",
       });
     } finally {
       setIsLoading(false);
@@ -55,8 +53,10 @@ export default function LoginPage() {
         if (authData.token) {
           localStorage.setItem("token", authData.token);
         }
-        // Redirect to dashboard
-        navigate({ to: "/dashboard" });
+        // Refresh auth state
+        await auth.refresh();
+        // Redirect to the redirect URL or dashboard
+        navigate({ to: redirect || "/dashboard" });
       } else {
         setErrors({ submit: response.error || "Google login failed" });
       }
@@ -75,26 +75,33 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <Link to="/" className="flex justify-center">
-          <h1 className="text-3xl font-bold text-gray-900">Logo</h1>
-        </Link>
-        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Sign in to your account
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Or{" "}
-          <Link
-            to="/"
-            className="font-medium text-primary-600 hover:text-primary-500"
-          >
-            return to home
+      <AnimatedContent delay={0.05} duration={0.8}>
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <Link to="/" className="flex justify-center">
+            <img
+              src={logoSmall}
+              alt="Savvi"
+              className="h-[200px] w-[200px]"
+            />
           </Link>
-        </p>
-      </div>
+          <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
+            Sign in to your account
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Or{" "}
+            <Link
+              to="/"
+              className="font-medium text-primary-600 hover:text-primary-500"
+            >
+              return to home
+            </Link>
+          </p>
+        </div>
+      </AnimatedContent>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <AnimatedContent delay={0.12} duration={0.9}>
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {errors.submit && (
               <div className="rounded-md bg-red-50 p-4">
@@ -242,8 +249,9 @@ export default function LoginPage() {
             </div>
           </form>
 
+          </div>
         </div>
-      </div>
+      </AnimatedContent>
     </div>
   );
 }

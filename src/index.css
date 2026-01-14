@@ -1,21 +1,45 @@
 @import "tailwindcss";
 
 @theme {
-  /* Primary Color Palette */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+  /* Primary Color Palette (Green) - Base: #4CAF4F */
+  --color-primary-50: #e8f5e9;
+  --color-primary-100: #c8e6c9;
+  --color-primary-200: #a5d6a7;
+  --color-primary-300: #81c784;
+  --color-primary-400: #66bb6a;
+  --color-primary-500: #4CAF4F;
+  --color-primary-600: #43a047;
+  --color-primary-700: #388e3c;
+  --color-primary-800: #2e7d32;
+  --color-primary-900: #1b5e20;
+
+  /* Secondary Color Palette (Dark Gray) - Base: #263238 */
+  --color-secondary-50: #eceff1;
+  --color-secondary-100: #cfd8dc;
+  --color-secondary-200: #b0bec5;
+  --color-secondary-300: #90a4ae;
+  --color-secondary-400: #78909c;
+  --color-secondary-500: #607d8b;
+  --color-secondary-600: #546e7a;
+  --color-secondary-700: #455a64;
+  --color-secondary-800: #37474f;
+  --color-secondary-900: #263238;
+
+  /* Info Color Palette (Blue) - Base: #2194F3 */
+  --color-info-50: #e3f2fd;
+  --color-info-100: #bbdefb;
+  --color-info-200: #90caf9;
+  --color-info-300: #64b5f6;
+  --color-info-400: #42a5f5;
+  --color-info-500: #2194F3;
+  --color-info-600: #1e88e5;
+  --color-info-700: #1976d2;
+  --color-info-800: #1565c0;
+  --color-info-900: #0d47a1;
 
   /* Gray Color Palette */
   --color-gray-50: #f9fafb;
-  --color-gray-100: #f3f4f6;
+  --color-gray-100: #F3F4F6;
   --color-gray-200: #e5e7eb;
   --color-gray-300: #d1d5db;
   --color-gray-400: #9ca3af;
@@ -24,4 +48,19 @@
   --color-gray-700: #374151;
   --color-gray-800: #1f2937;
   --color-gray-900: #111827;
+}
+
+@keyframes fade-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-down {
+  animation: fade-in-down 150ms ease-out;
 }
