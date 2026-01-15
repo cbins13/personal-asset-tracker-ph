@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { usersApi, type UserSummary } from '../utils/api';
+import { usersApi, rolesApi, type UserSummary, type Role } from '../utils/api';
 
 interface EditUserModalProps {
   user: UserSummary | null;
@@ -8,18 +8,6 @@ interface EditUserModalProps {
   onSave: () => void;
 }
 
-// Valid roles and permissions (should match backend constants)
-const VALID_ROLES = ['admin', 'user', 'moderator'];
-const VALID_PERMISSIONS = [
-  'users:read',
-  'users:write',
-  'users:delete',
-  'assets:read',
-  'assets:write',
-  'assets:delete',
-  'admin:all',
-];
-
 export default function EditUserModal({
   user,
   isOpen,
@@ -27,16 +15,32 @@ export default function EditUserModal({
   onSave,
 }: EditUserModalProps) {
   const [roles, setRoles] = useState<string[]>([]);
-  const [permissions, setPermissions] = useState<string[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
+  const [isLoadingRoles, setIsLoadingRoles] = useState(false);
+
+  // Load available roles from database
+  useEffect(() => {
+    const loadRoles = async () => {
+      setIsLoadingRoles(true);
+      const response = await rolesApi.getAll(true); // Only active roles
+      if (response.success && response.data) {
+        setAvailableRoles(response.data.roles);
+      }
+      setIsLoadingRoles(false);
+    };
+
+    if (isOpen) {
+      void loadRoles();
+    }
+  }, [isOpen]);
 
   // Initialize form when user changes
   useEffect(() => {
     if (user) {
       setRoles(user.roles || []);
-      setPermissions(user.permissions || []);
       setIsActive(user.isActive !== false);
       setError(null);
     }
@@ -54,14 +58,6 @@ export default function EditUserModal({
     );
   };
 
-  const handlePermissionToggle = (permission: string) => {
-    setPermissions((prev) =>
-      prev.includes(permission)
-        ? prev.filter((p) => p !== permission)
-        : [...prev, permission]
-    );
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -70,7 +66,6 @@ export default function EditUserModal({
     try {
       const response = await usersApi.updateUser(user.id, {
         roles,
-        permissions,
         isActive,
       });
 
@@ -159,59 +154,73 @@ export default function EditUserModal({
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Roles
               </label>
-              <div className="space-y-2">
-                {VALID_ROLES.map((role) => (
-                  <label
-                    key={role}
-                    className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={roles.includes(role)}
-                      onChange={() => handleRoleToggle(role)}
-                      className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                    />
-                    <span className="text-sm text-gray-700 capitalize">
-                      {role}
-                    </span>
-                    {role === 'admin' && (
-                      <span className="text-xs text-red-600">
-                        (Warning: High privileges)
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </div>
+              {isLoadingRoles ? (
+                <div className="py-4 text-center text-sm text-gray-500">
+                  Loading roles...
+                </div>
+              ) : availableRoles.length === 0 ? (
+                <div className="py-4 text-center text-sm text-gray-500">
+                  No roles available. Create roles in the Roles page.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                  {availableRoles.map((role) => (
+                    <label
+                      key={role.id}
+                      className="flex items-start space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={roles.includes(role.name)}
+                        onChange={() => handleRoleToggle(role.name)}
+                        className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500 mt-0.5"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-700 capitalize">
+                            {role.displayName}
+                          </span>
+                          {role.isSystemRole && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                              System
+                            </span>
+                          )}
+                          {role.name === 'admin' && (
+                            <span className="text-xs text-red-600">
+                              (Warning: High privileges)
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {role.description}
+                        </p>
+                        {role.permissions.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {role.permissions.slice(0, 3).map((perm) => (
+                              <span
+                                key={perm.name}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono bg-gray-100 text-gray-600"
+                              >
+                                {perm.name}
+                              </span>
+                            ))}
+                            {role.permissions.length > 3 && (
+                              <span className="text-xs text-gray-400">
+                                +{role.permissions.length - 3} more
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
               {roles.length === 0 && (
                 <p className="text-xs text-amber-600 mt-2">
                   User must have at least one role
                 </p>
               )}
-            </div>
-
-            {/* Permissions */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Permissions
-              </label>
-              <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
-                {VALID_PERMISSIONS.map((permission) => (
-                  <label
-                    key={permission}
-                    className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={permissions.includes(permission)}
-                      onChange={() => handlePermissionToggle(permission)}
-                      className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                    />
-                    <span className="text-sm text-gray-700 font-mono">
-                      {permission}
-                    </span>
-                  </label>
-                ))}
-              </div>
             </div>
 
             {/* Actions */}

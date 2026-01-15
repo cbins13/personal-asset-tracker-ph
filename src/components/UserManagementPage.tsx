@@ -59,7 +59,7 @@ export default function UserManagementPage() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
               <p className="mt-1 text-sm text-gray-600">
-                View all registered accounts, their roles, and permissions.
+                View all registered accounts and manage their roles.
               </p>
             </div>
             <div className="hidden md:flex flex-col items-end text-xs text-gray-500">
@@ -116,7 +116,6 @@ export default function UserManagementPage() {
                         <th className="px-4 py-3 text-left font-semibold text-gray-700">Email</th>
                         <th className="px-4 py-3 text-left font-semibold text-gray-700">Provider</th>
                         <th className="px-4 py-3 text-left font-semibold text-gray-700">Roles</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Permissions</th>
                         <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
                         <th className="px-4 py-3 text-left font-semibold text-gray-700">Actions</th>
                       </tr>
@@ -150,22 +149,6 @@ export default function UserManagementPage() {
                               </div>
                             ) : (
                               <span className="text-xs text-gray-400">No roles</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {user.permissions.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {user.permissions.map((perm) => (
-                                  <span
-                                    key={perm}
-                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-info-50 text-info-700 border border-info-100"
-                                  >
-                                    {perm}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-xs text-gray-400">No permissions</span>
                             )}
                           </td>
                           <td className="px-4 py-3">

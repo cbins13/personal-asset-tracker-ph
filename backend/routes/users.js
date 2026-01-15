@@ -1,30 +1,116 @@
 import express from 'express';
 import User from '../models/User.js';
+import Permission from '../models/Permission.js';
+import Role from '../models/Role.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
-import { VALID_ROLES, VALID_PERMISSIONS } from '../constants/rbac.js';
 
 const router = express.Router();
+
+// Helper function to get permission details for permission names
+async function getPermissionDetails(permissionNames) {
+  if (!permissionNames || permissionNames.length === 0) {
+    return [];
+  }
+
+  const permissions = await Permission.find({
+    name: { $in: permissionNames },
+  }).select('name description resource action category isActive');
+
+  return permissionNames.map((permName) => {
+    const perm = permissions.find((p) => p.name === permName);
+    return perm
+      ? {
+          name: perm.name,
+          description: perm.description,
+          resource: perm.resource,
+          action: perm.action,
+          category: perm.category,
+          isActive: perm.isActive,
+        }
+      : {
+          name: permName,
+          description: '',
+          resource: permName.split(':')[0] || '',
+          action: permName.split(':')[1] || '',
+          category: 'other',
+          isActive: false,
+        };
+  });
+}
 
 // Admin: Get all users
 router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {
+    const { includePermissionDetails } = req.query;
     const users = await User.find().select('-password');
 
-    res.json({
-      success: true,
-      users: users.map((user) => ({
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-        provider: user.provider,
-        roles: user.roles || [],
-        permissions: user.permissions || [],
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        lastLogin: user.lastLogin,
-      })),
-    });
+    // If includePermissionDetails is true, populate permission details
+    if (includePermissionDetails === 'true') {
+      // Get all unique permission names from all users
+      const allPermissionNames = [
+        ...new Set(users.flatMap((user) => user.permissions || [])),
+      ];
+
+      // Fetch all permission details at once
+      const permissionDetailsMap = new Map();
+      if (allPermissionNames.length > 0) {
+        const permissions = await Permission.find({
+          name: { $in: allPermissionNames },
+        }).select('name description resource action category isActive');
+
+        permissions.forEach((perm) => {
+          permissionDetailsMap.set(perm.name, {
+            name: perm.name,
+            description: perm.description,
+            resource: perm.resource,
+            action: perm.action,
+            category: perm.category,
+            isActive: perm.isActive,
+          });
+        });
+      }
+
+      res.json({
+        success: true,
+        users: users.map((user) => ({
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          picture: user.picture,
+          provider: user.provider,
+          roles: user.roles || [],
+          permissions: (user.permissions || []).map((permName) =>
+            permissionDetailsMap.get(permName) || {
+              name: permName,
+              description: '',
+              resource: permName.split(':')[0] || '',
+              action: permName.split(':')[1] || '',
+              category: 'other',
+              isActive: false,
+            }
+          ),
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          lastLogin: user.lastLogin,
+        })),
+      });
+    } else {
+      res.json({
+        success: true,
+        users: users.map((user) => ({
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          picture: user.picture,
+          provider: user.provider,
+          roles: user.roles || [],
+          permissions: user.permissions || [],
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          lastLogin: user.lastLogin,
+        })),
+      });
+    }
   } catch (error) {
     console.error('Admin list users error:', error);
     res.status(500).json({ error: 'Failed to list users', details: error.message });
@@ -34,26 +120,48 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
 // Get current user profile
 router.get('/profile', requireAuth, async (req, res) => {
   try {
+    const { includePermissionDetails } = req.query;
     const user = await User.findById(req.session.userId).select('-password');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({
-      success: true,
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-        provider: user.provider,
-        preferences: user.preferences,
-        createdAt: user.createdAt,
-        lastLogin: user.lastLogin,
-        roles: user.roles || [],
-        permissions: user.permissions || [],
-      },
-    });
+    // If includePermissionDetails is true, populate permission details
+    if (includePermissionDetails === 'true') {
+      const permissionDetails = await getPermissionDetails(user.permissions);
+
+      res.json({
+        success: true,
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          picture: user.picture,
+          provider: user.provider,
+          preferences: user.preferences,
+          createdAt: user.createdAt,
+          lastLogin: user.lastLogin,
+          roles: user.roles || [],
+          permissions: permissionDetails,
+        },
+      });
+    } else {
+      res.json({
+        success: true,
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          picture: user.picture,
+          provider: user.provider,
+          preferences: user.preferences,
+          createdAt: user.createdAt,
+          lastLogin: user.lastLogin,
+          roles: user.roles || [],
+          permissions: user.permissions || [],
+        },
+      });
+    }
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Failed to get profile', details: error.message });
@@ -97,6 +205,44 @@ router.put('/profile', requireAuth, async (req, res) => {
   }
 });
 
+// Admin: Get user permissions with details
+router.get('/:id/permissions', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('permissions');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const permissionNames = user.permissions || [];
+    if (permissionNames.length === 0) {
+      return res.json({
+        success: true,
+        permissions: [],
+      });
+    }
+
+    const permissions = await Permission.find({
+      name: { $in: permissionNames },
+    }).select('name description resource action category isActive');
+
+    res.json({
+      success: true,
+      permissions: permissions.map((perm) => ({
+        id: perm._id,
+        name: perm.name,
+        description: perm.description,
+        resource: perm.resource,
+        action: perm.action,
+        category: perm.category,
+        isActive: perm.isActive,
+      })),
+    });
+  } catch (error) {
+    console.error('Get user permissions error:', error);
+    res.status(500).json({ error: 'Failed to get user permissions', details: error.message });
+  }
+});
+
 // Admin: Update user roles and permissions
 // IMPORTANT: This route must come AFTER /profile to avoid conflicts
 // Route: PUT /api/users/:id
@@ -127,13 +273,22 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
         return res.status(400).json({ error: 'Roles must be an array' });
       }
 
-      // Validate each role
-      const invalidRoles = roles.filter((role) => !VALID_ROLES.includes(role));
-      if (invalidRoles.length > 0) {
-        return res.status(400).json({
-          error: `Invalid roles: ${invalidRoles.join(', ')}`,
-          validRoles: VALID_ROLES,
-        });
+      // Validate each role exists in Roles collection
+      if (roles.length > 0) {
+        const existingRoles = await Role.find({
+          name: { $in: roles },
+          isActive: true, // Only allow active roles
+        }).select('name');
+
+        const existingRoleNames = existingRoles.map((r) => r.name);
+        const invalidRoles = roles.filter((role) => !existingRoleNames.includes(role));
+
+        if (invalidRoles.length > 0) {
+          return res.status(400).json({
+            error: `Invalid or inactive roles: ${invalidRoles.join(', ')}`,
+            message: 'Roles must exist in the Roles collection and be active',
+          });
+        }
       }
 
       // Security check: Prevent removing the last admin
@@ -159,15 +314,24 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
         return res.status(400).json({ error: 'Permissions must be an array' });
       }
 
-      // Validate each permission
-      const invalidPermissions = permissions.filter(
-        (perm) => !VALID_PERMISSIONS.includes(perm)
-      );
-      if (invalidPermissions.length > 0) {
-        return res.status(400).json({
-          error: `Invalid permissions: ${invalidPermissions.join(', ')}`,
-          validPermissions: VALID_PERMISSIONS,
-        });
+      // Validate each permission exists in Permissions collection
+      if (permissions.length > 0) {
+        const existingPermissions = await Permission.find({
+          name: { $in: permissions },
+          isActive: true, // Only allow active permissions
+        }).select('name');
+
+        const existingPermissionNames = existingPermissions.map((p) => p.name);
+        const invalidPermissions = permissions.filter(
+          (perm) => !existingPermissionNames.includes(perm)
+        );
+
+        if (invalidPermissions.length > 0) {
+          return res.status(400).json({
+            error: `Invalid or inactive permissions: ${invalidPermissions.join(', ')}`,
+            message: 'Permissions must exist in the Permissions collection and be active',
+          });
+        }
       }
 
       targetUser.permissions = permissions;
@@ -199,6 +363,9 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
     await targetUser.save();
 
+    // Get permission details for the response
+    const permissionDetails = await getPermissionDetails(targetUser.permissions);
+
     res.json({
       success: true,
       user: {
@@ -208,7 +375,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
         picture: targetUser.picture,
         provider: targetUser.provider,
         roles: targetUser.roles || [],
-        permissions: targetUser.permissions || [],
+        permissions: permissionDetails,
         isActive: targetUser.isActive,
         createdAt: targetUser.createdAt,
         lastLogin: targetUser.lastLogin,

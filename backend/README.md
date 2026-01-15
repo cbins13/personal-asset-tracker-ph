@@ -51,6 +51,15 @@ npm start
 
 The server will run on `http://localhost:5002` by default.
 
+## Seeding Initial Data
+
+**Seed system roles (admin, user, moderator):**
+```bash
+npm run seed:roles
+```
+
+This will create the default system roles if they don't already exist.
+
 ## API Endpoints
 
 ### Health Check
@@ -64,8 +73,25 @@ The server will run on `http://localhost:5002` by default.
 - `GET /api/auth/me` - Get current user from session
 
 ### Users (`/api/users`)
+- `GET /api/users` - Get all users (admin only)
 - `GET /api/users/profile` - Get user profile (requires auth)
 - `PUT /api/users/profile` - Update user profile (requires auth)
+- `PUT /api/users/:id` - Update user roles and status (admin only)
+- `GET /api/users/:id/permissions` - Get user permissions with details (admin only)
+
+### Roles (`/api/roles`)
+- `GET /api/roles` - Get all roles (admin only)
+- `GET /api/roles/:id` - Get single role (admin only)
+- `POST /api/roles` - Create new role (admin only)
+- `PUT /api/roles/:id` - Update role (admin only)
+- `DELETE /api/roles/:id` - Delete role (admin only)
+
+### Permissions (`/api/permissions`)
+- `GET /api/permissions` - Get all permissions (admin only)
+- `GET /api/permissions/:id` - Get single permission (admin only)
+- `POST /api/permissions` - Create new permission (admin only)
+- `PUT /api/permissions/:id` - Update permission (admin only)
+- `DELETE /api/permissions/:id` - Delete permission (admin only)
 
 ## Environment Variables
 

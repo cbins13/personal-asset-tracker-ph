@@ -4,11 +4,17 @@ import { useRouterState } from "@tanstack/react-router";
 import { useAuth } from "../auth";
 import logoSmall from "../assets/savvi_logo.png";
 
-type SidebarItem = {
+type SidebarSubItem = {
   label: string;
   to: string;
+};
+
+type SidebarItem = {
+  label: string;
+  to?: string;
   icon?: React.ReactNode;
   roles?: string[]; // if omitted, visible to all authenticated users
+  submenu?: SidebarSubItem[]; // if present, this is a dropdown menu
 };
 
 const sidebarItems: SidebarItem[] = [
@@ -24,7 +30,6 @@ const sidebarItems: SidebarItem[] = [
   },
   {
     label: "User Management",
-    to: "/admin/users",
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -36,6 +41,20 @@ const sidebarItems: SidebarItem[] = [
       </svg>
     ),
     roles: ["admin"],
+    submenu: [
+      {
+        label: "Users",
+        to: "/admin/users",
+      },
+      {
+        label: "Roles",
+        to: "/admin/roles",
+      },
+      {
+        label: "Permissions",
+        to: "/admin/permissions",
+      },
+    ],
   },
 ];
 
@@ -51,10 +70,25 @@ export default function Sidebar() {
     return saved ? JSON.parse(saved) : false;
   });
 
+  // Track which dropdown menus are open
+  const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
+
   // Save collapsed state to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", JSON.stringify(isCollapsed));
   }, [isCollapsed]);
+
+  // Auto-open dropdown if current path matches a submenu item
+  useEffect(() => {
+    sidebarItems.forEach((item) => {
+      if (item.submenu) {
+        const hasActiveSubmenu = item.submenu.some((sub) => sub.to === pathname);
+        if (hasActiveSubmenu) {
+          setOpenDropdowns((prev) => new Set(prev).add(item.label));
+        }
+      }
+    });
+  }, [pathname]);
 
   if (!auth.isAuthenticated) {
     return null;
@@ -68,6 +102,20 @@ export default function Sidebar() {
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
   };
+
+  const toggleDropdown = (label: string) => {
+    setOpenDropdowns((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(label)) {
+        newSet.delete(label);
+      } else {
+        newSet.add(label);
+      }
+      return newSet;
+    });
+  };
+
+  const isDropdownOpen = (label: string) => openDropdowns.has(label);
 
   return (
     <aside
@@ -103,13 +151,132 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 animate-fade-in-down">
+      <nav className="flex-1 px-3 py-4 space-y-1 animate-fade-in-down overflow-y-auto">
         {visibleItems.map((item) => {
-          const isActive = pathname === item.to;
-          return (
+          // Check if any submenu item is active
+          const isSubmenuActive = item.submenu?.some((sub) => sub.to === pathname);
+          const isActive = item.to ? pathname === item.to : isSubmenuActive;
+          const hasSubmenu = item.submenu && item.submenu.length > 0;
+          const dropdownOpen = hasSubmenu && isDropdownOpen(item.label);
+
+          if (hasSubmenu && !isCollapsed) {
+            // Render dropdown menu
+            return (
+              <div key={item.label} className="space-y-1">
+                <button
+                  onClick={() => toggleDropdown(item.label)}
+                  className={[
+                    "group w-full flex items-center justify-between rounded-md transition-all duration-200",
+                    "px-3 py-2",
+                    isActive || dropdownOpen
+                      ? "bg-primary-50 text-primary-700"
+                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+                  ].join(" ")}
+                >
+                  <div className="flex items-center">
+                    {item.icon && (
+                      <span className="flex items-center justify-center mr-3 transition-transform duration-200 group-hover:scale-110">
+                        {item.icon}
+                      </span>
+                    )}
+                    <span className="text-sm font-medium">{item.label}</span>
+                  </div>
+                  <svg
+                    className={`w-4 h-4 transition-transform duration-300 ease-in-out ${dropdownOpen ? "rotate-180" : "rotate-0"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    dropdownOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+                  }`}
+                >
+                  <div className="ml-4 space-y-1 border-l-2 border-gray-200 pl-2 pt-1">
+                    {item.submenu?.map((subItem, index) => {
+                      const isSubActive = pathname === subItem.to;
+                      return (
+                        <Link
+                          key={subItem.to}
+                          to={subItem.to}
+                          className={[
+                            "flex items-center rounded-md transition-all duration-200 px-3 py-2 text-sm",
+                            isSubActive
+                              ? "bg-primary-50 text-primary-700 font-medium"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                            dropdownOpen ? "animate-fade-in-scale" : "",
+                          ].join(" ")}
+                          style={{
+                            animationDelay: dropdownOpen ? `${index * 0.05}s` : "0s",
+                          }}
+                        >
+                          <span className="ml-1">{subItem.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          } else if (hasSubmenu && isCollapsed) {
+            // Collapsed state: show icon only with tooltip
+            return (
+              <div key={item.label} className="relative group">
+                <button
+                  onClick={() => toggleDropdown(item.label)}
+                  className={[
+                    "w-full flex items-center justify-center rounded-md transition-all duration-200 px-2 py-2",
+                    isActive || dropdownOpen
+                      ? "bg-primary-50 text-primary-700"
+                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+                  ].join(" ")}
+                  title={item.label}
+                >
+                  {item.icon && (
+                    <span className="flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
+                      {item.icon}
+                    </span>
+                  )}
+                </button>
+                <div
+                  className={`absolute left-full ml-2 top-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[160px] z-50 transition-all duration-300 ease-in-out ${
+                    dropdownOpen
+                      ? "opacity-100 translate-x-0 animate-fade-in-scale"
+                      : "opacity-0 -translate-x-2 pointer-events-none"
+                  }`}
+                >
+                  {item.submenu?.map((subItem, index) => {
+                    const isSubActive = pathname === subItem.to;
+                    return (
+                      <Link
+                        key={subItem.to}
+                        to={subItem.to}
+                        className={[
+                          "block px-4 py-2 text-sm transition-colors",
+                          isSubActive
+                            ? "bg-primary-50 text-primary-700 font-medium"
+                            : "text-gray-700 hover:bg-gray-50",
+                        ].join(" ")}
+                        style={{
+                          animationDelay: dropdownOpen ? `${index * 0.05}s` : "0s",
+                        }}
+                      >
+                        {subItem.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          } else {
+            // Regular menu item (no submenu)
+            return (
               <Link
                 key={item.to}
-                to={item.to}
+                to={item.to!}
                 className={[
                   "group flex items-center rounded-md transition-all duration-200",
                   isCollapsed ? "justify-center px-2 py-2" : "px-3 py-2",
@@ -119,18 +286,19 @@ export default function Sidebar() {
                 ].join(" ")}
                 title={isCollapsed ? item.label : undefined}
               >
-              {item.icon && (
-                <span
-                  className={`flex items-center justify-center ${isCollapsed ? "" : "mr-3"} transition-transform duration-200 group-hover:scale-110`}
-                >
-                  {item.icon}
-                </span>
-              )}
-              {!isCollapsed && (
-                <span className="text-sm font-medium">{item.label}</span>
-              )}
-            </Link>
-          );
+                {item.icon && (
+                  <span
+                    className={`flex items-center justify-center ${isCollapsed ? "" : "mr-3"} transition-transform duration-200 group-hover:scale-110`}
+                  >
+                    {item.icon}
+                  </span>
+                )}
+                {!isCollapsed && (
+                  <span className="text-sm font-medium">{item.label}</span>
+                )}
+              </Link>
+            );
+          }
         })}
       </nav>
 

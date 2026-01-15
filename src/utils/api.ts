@@ -125,3 +125,116 @@ export const usersApi = {
     });
   },
 };
+
+// Permissions API functions (admin)
+export interface Permission {
+  id: string;
+  name: string;
+  description: string;
+  resource: string;
+  action: string;
+  category: 'user_management' | 'asset_management' | 'admin' | 'other';
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const permissionsApi = {
+  getAll: async (category?: string, isActive?: boolean): Promise<ApiResponse<{ permissions: Permission[] }>> => {
+    const params = new URLSearchParams();
+    if (category) params.append('category', category);
+    if (isActive !== undefined) params.append('isActive', String(isActive));
+    const query = params.toString();
+    return apiRequest<{ permissions: Permission[] }>(`/permissions${query ? `?${query}` : ''}`);
+  },
+
+  getById: async (id: string): Promise<ApiResponse<{ permission: Permission }>> => {
+    return apiRequest<{ permission: Permission }>(`/permissions/${id}`);
+  },
+
+  create: async (data: { name: string; description: string; category?: string }): Promise<ApiResponse<{ permission: Permission }>> => {
+    return apiRequest<{ permission: Permission }>('/permissions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (id: string, data: { name?: string; description?: string; category?: string; isActive?: boolean }): Promise<ApiResponse<{ permission: Permission }>> => {
+    return apiRequest<{ permission: Permission }>(`/permissions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: string): Promise<ApiResponse<{ message: string }>> => {
+    return apiRequest<{ message: string }>(`/permissions/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// Roles API functions (admin)
+export interface RolePermission {
+  name: string;
+  description: string;
+  category: string;
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  permissions: RolePermission[];
+  isActive: boolean;
+  isSystemRole: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const rolesApi = {
+  getAll: async (isActive?: boolean): Promise<ApiResponse<{ roles: Role[] }>> => {
+    const params = new URLSearchParams();
+    if (isActive !== undefined) params.append('isActive', String(isActive));
+    const query = params.toString();
+    return apiRequest<{ roles: Role[] }>(`/roles${query ? `?${query}` : ''}`);
+  },
+
+  getById: async (id: string): Promise<ApiResponse<{ role: Role }>> => {
+    return apiRequest<{ role: Role }>(`/roles/${id}`);
+  },
+
+  create: async (data: {
+    name: string;
+    displayName: string;
+    description: string;
+    permissions?: string[];
+  }): Promise<ApiResponse<{ role: Role }>> => {
+    return apiRequest<{ role: Role }>('/roles', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (
+    id: string,
+    data: {
+      name?: string;
+      displayName?: string;
+      description?: string;
+      permissions?: string[];
+      isActive?: boolean;
+    }
+  ): Promise<ApiResponse<{ role: Role }>> => {
+    return apiRequest<{ role: Role }>(`/roles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: string): Promise<ApiResponse<{ message: string }>> => {
+    return apiRequest<{ message: string }>(`/roles/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};

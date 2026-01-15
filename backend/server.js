@@ -6,6 +6,8 @@ import MongoStore from 'connect-mongo';
 import connectDB from './config/database.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
+import permissionRoutes from './routes/permissions.js';
+import roleRoutes from './routes/roles.js';
 import { sessionMiddleware, sessionLogger } from './middleware/session.js';
 
 // Load environment variables
@@ -66,6 +68,8 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/permissions', permissionRoutes);
+app.use('/api/roles', roleRoutes);
 
 // 404 handler (must come before error handler)
 app.use((req, res) => {
