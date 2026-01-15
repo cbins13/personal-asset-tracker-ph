@@ -110,4 +110,18 @@ export const usersApi = {
   getAll: async (): Promise<ApiResponse<{ users: UserSummary[] }>> => {
     return apiRequest<{ users: UserSummary[] }>('/users');
   },
+
+  updateUser: async (
+    userId: string,
+    updates: {
+      roles?: string[];
+      permissions?: string[];
+      isActive?: boolean;
+    }
+  ): Promise<ApiResponse<{ user: UserSummary }>> => {
+    return apiRequest<{ user: UserSummary }>(`/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
 };

@@ -3,28 +3,48 @@ import { useAuth } from "../auth";
 import Sidebar from "./Sidebar";
 import AnimatedContent from "../effects/AnimatedContent";
 import { usersApi, type UserSummary } from "../utils/api";
+import EditUserModal from "./EditUserModal";
 
 export default function UserManagementPage() {
   const auth = useAuth();
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<UserSummary | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const loadUsers = async () => {
+    setIsLoading(true);
+    setError(null);
+    const response = await usersApi.getAll();
+    if (response.success && response.data) {
+      setUsers(response.data.users);
+    } else {
+      setError(response.error || "Failed to load users");
+    }
+    setIsLoading(false);
+  };
 
   useEffect(() => {
-    const loadUsers = async () => {
-      setIsLoading(true);
-      setError(null);
-      const response = await usersApi.getAll();
-      if (response.success && response.data) {
-        setUsers(response.data.users);
-      } else {
-        setError(response.error || "Failed to load users");
-      }
-      setIsLoading(false);
-    };
-
     void loadUsers();
   }, []);
+
+  const handleEditClick = (user: UserSummary) => {
+    setEditingUser(user);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditingUser(null);
+  };
+
+  const handleSave = () => {
+    // Reload users after successful save
+    void loadUsers();
+    // Refresh auth state in case the current user was updated
+    void auth.refresh();
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -98,6 +118,7 @@ export default function UserManagementPage() {
                         <th className="px-4 py-3 text-left font-semibold text-gray-700">Roles</th>
                         <th className="px-4 py-3 text-left font-semibold text-gray-700">Permissions</th>
                         <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100">
@@ -158,6 +179,27 @@ export default function UserManagementPage() {
                               </span>
                             )}
                           </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => handleEditClick(user)}
+                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-500 transition-colors"
+                            >
+                              <svg
+                                className="w-4 h-4 mr-1.5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                              Edit
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -168,6 +210,14 @@ export default function UserManagementPage() {
           </AnimatedContent>
         </main>
       </div>
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        user={editingUser}
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onSave={handleSave}
+      />
     </div>
   );
 }

@@ -67,18 +67,21 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 
-// Error handling middleware
+// 404 handler (must come before error handler)
+app.use((req, res) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.error(`404 - Route not found: ${req.method} ${req.path}`);
+  }
+  res.status(404).json({ error: 'Route not found' });
+});
+
+// Error handling middleware (must have 4 parameters and come last)
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
+  console.error('Error:', err.stack);
+  res.status(err.status || 500).json({ 
     error: 'Something went wrong!', 
     message: process.env.NODE_ENV === 'development' ? err.message : undefined 
   });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
 });
 
 app.listen(PORT, 'localhost', () => {

@@ -1,6 +1,7 @@
 import express from 'express';
 import User from '../models/User.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { VALID_ROLES, VALID_PERMISSIONS } from '../constants/rbac.js';
 
 const router = express.Router();
 
@@ -59,7 +60,7 @@ router.get('/profile', requireAuth, async (req, res) => {
   }
 });
 
-// Update user profile
+// Update user profile (must come before /:id route)
 router.put('/profile', requireAuth, async (req, res) => {
   try {
     const { name, picture, preferences } = req.body;
@@ -93,6 +94,132 @@ router.put('/profile', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: 'Failed to update profile', details: error.message });
+  }
+});
+
+// Admin: Update user roles and permissions
+// IMPORTANT: This route must come AFTER /profile to avoid conflicts
+// Route: PUT /api/users/:id
+router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { roles, permissions, isActive } = req.body;
+    const currentAdminId = req.session.userId;
+
+    // Find the target user
+    const targetUser = await User.findById(id);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Security check: Prevent admin from removing their own admin role
+    if (id === currentAdminId.toString()) {
+      if (roles && Array.isArray(roles) && !roles.includes('admin')) {
+        return res.status(400).json({
+          error: 'Cannot remove your own admin role',
+        });
+      }
+    }
+
+    // Validate and update roles
+    if (roles !== undefined) {
+      if (!Array.isArray(roles)) {
+        return res.status(400).json({ error: 'Roles must be an array' });
+      }
+
+      // Validate each role
+      const invalidRoles = roles.filter((role) => !VALID_ROLES.includes(role));
+      if (invalidRoles.length > 0) {
+        return res.status(400).json({
+          error: `Invalid roles: ${invalidRoles.join(', ')}`,
+          validRoles: VALID_ROLES,
+        });
+      }
+
+      // Security check: Prevent removing the last admin
+      if (roles.length > 0 && !roles.includes('admin')) {
+        const adminCount = await User.countDocuments({
+          roles: 'admin',
+          _id: { $ne: id },
+        });
+
+        if (adminCount === 0) {
+          return res.status(400).json({
+            error: 'Cannot remove the last admin. At least one admin must remain.',
+          });
+        }
+      }
+
+      targetUser.roles = roles;
+    }
+
+    // Validate and update permissions
+    if (permissions !== undefined) {
+      if (!Array.isArray(permissions)) {
+        return res.status(400).json({ error: 'Permissions must be an array' });
+      }
+
+      // Validate each permission
+      const invalidPermissions = permissions.filter(
+        (perm) => !VALID_PERMISSIONS.includes(perm)
+      );
+      if (invalidPermissions.length > 0) {
+        return res.status(400).json({
+          error: `Invalid permissions: ${invalidPermissions.join(', ')}`,
+          validPermissions: VALID_PERMISSIONS,
+        });
+      }
+
+      targetUser.permissions = permissions;
+    }
+
+    // Update isActive status
+    if (isActive !== undefined) {
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ error: 'isActive must be a boolean' });
+      }
+      
+      // Prevent deactivating the last admin
+      if (isActive === false && targetUser.roles.includes('admin')) {
+        const adminCount = await User.countDocuments({
+          roles: 'admin',
+          isActive: true,
+          _id: { $ne: id },
+        });
+
+        if (adminCount === 0) {
+          return res.status(400).json({
+            error: 'Cannot deactivate the last admin. At least one active admin must remain.',
+          });
+        }
+      }
+
+      targetUser.isActive = isActive;
+    }
+
+    await targetUser.save();
+
+    res.json({
+      success: true,
+      user: {
+        id: targetUser._id,
+        email: targetUser.email,
+        name: targetUser.name,
+        picture: targetUser.picture,
+        provider: targetUser.provider,
+        roles: targetUser.roles || [],
+        permissions: targetUser.permissions || [],
+        isActive: targetUser.isActive,
+        createdAt: targetUser.createdAt,
+        lastLogin: targetUser.lastLogin,
+      },
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({
+      error: 'Failed to update user',
+      details: error.message,
+    });
   }
 });
 
