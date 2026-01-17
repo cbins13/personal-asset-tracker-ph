@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import Role from '../models/Role.js';
 import Permission from '../models/Permission.js';
+import AccountType from '../models/AccountType.js';
 import connectDB from '../config/database.js';
 
 dotenv.config();
@@ -125,6 +126,49 @@ const rolesToCreate = [
   },
 ];
 
+const accountTypesToCreate = [
+  {
+    type: 'Savings',
+    data: {
+      accountName: 'Savings',
+      interestRate: 0,
+      goalAmount: 0,
+      currentBalance: 0,
+    },
+  },
+  {
+    type: 'Wallet',
+    data: {
+      walletName: 'Wallet',
+      currentBalance: 0,
+    },
+  },
+  {
+    type: 'Investments',
+    data: {
+      investmentName: 'Investments',
+      startingBalance: 0,
+      interestRate: 0,
+      startDate: new Date(),
+      endDate: new Date(),
+    },
+  },
+  {
+    type: 'Credit',
+    data: {
+      accountName: 'Credit',
+      currentBalance: 0,
+    },
+  },
+  {
+    type: 'Loans',
+    data: {
+      accountName: 'Loans',
+      currentBalance: 0,
+    },
+  },
+];
+
 async function seedInitialData() {
   try {
     await connectDB();
@@ -183,10 +227,33 @@ async function seedInitialData() {
       );
     }
 
+    // Step 3: Create account types
+    console.log('\n=== Creating Account Types ===');
+    const createdAccountTypes = [];
+    for (const accountType of accountTypesToCreate) {
+      const existing = await AccountType.findOne({ type: accountType.type });
+      if (existing) {
+        console.log(`  ⏭️  Account type "${accountType.type}" already exists, skipping...`);
+        continue;
+      }
+
+      const AccountTypeModel = AccountType.discriminators?.[accountType.type];
+      if (!AccountTypeModel) {
+        console.log(`  ⚠️  Account type model "${accountType.type}" not found, skipping...`);
+        continue;
+      }
+
+      const accountTypeDoc = new AccountTypeModel(accountType.data);
+      await accountTypeDoc.save();
+      createdAccountTypes.push(accountTypeDoc);
+      console.log(`  ✓ Created account type: ${accountType.type}`);
+    }
+
     console.log('\n✅ Initial data seeding completed successfully!');
     console.log('\nSummary:');
     console.log(`  - Permissions: ${createdPermissions.length} created`);
     console.log(`  - Roles: ${rolesToCreate.length} system roles available`);
+    console.log(`  - Account Types: ${createdAccountTypes.length} created`);
     console.log('\nYour user data is now synced with the Roles and Permissions collections.');
     process.exit(0);
   } catch (error) {

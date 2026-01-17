@@ -238,3 +238,118 @@ export const rolesApi = {
     });
   },
 };
+
+export interface Account {
+  id: string;
+  accountName: string;
+  type: string;
+  providerId?: string;
+  providerLabel?: string;
+  currentBalance: number;
+  addToNetWorth: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Transaction {
+  id: string;
+  accountId: string;
+  amount: number;
+  type: 'credit' | 'debit';
+  label?: string;
+  category?: string;
+  notes?: string;
+  occurredAt?: string;
+  createdAt?: string;
+}
+
+export type ProvidersByType = Record<string, { id: string; label: string; accent: string }[]>;
+
+export const accountsApi = {
+  getAll: async (): Promise<ApiResponse<{ accounts: Account[] }>> => {
+    return apiRequest<{ accounts: Account[] }>('/accounts');
+  },
+  getById: async (accountId: string): Promise<ApiResponse<{ account: Account }>> => {
+    return apiRequest<{ account: Account }>(`/accounts/${accountId}`);
+  },
+  create: async (data: {
+    accountName: string;
+    type: string;
+    currentBalance?: number;
+    addToNetWorth?: boolean;
+    providerId?: string;
+    providerLabel?: string;
+  }): Promise<ApiResponse<{ account: Account }>> => {
+    return apiRequest<{ account: Account }>('/accounts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  update: async (
+    accountId: string,
+    data: {
+      accountName?: string;
+      type?: string;
+      currentBalance?: number;
+      addToNetWorth?: boolean;
+      providerId?: string;
+      providerLabel?: string;
+    }
+  ): Promise<ApiResponse<{ account: Account }>> => {
+    return apiRequest<{ account: Account }>(`/accounts/${accountId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  delete: async (accountId: string): Promise<ApiResponse<{ message: string }>> => {
+    return apiRequest<{ message: string }>(`/accounts/${accountId}`, {
+      method: 'DELETE',
+    });
+  },
+  getProviders: async (): Promise<ApiResponse<{ providersByType: ProvidersByType }>> => {
+    return apiRequest<{ providersByType: ProvidersByType }>('/accounts/providers');
+  },
+};
+
+export const transactionsApi = {
+  list: async (accountId?: string): Promise<ApiResponse<{ transactions: Transaction[] }>> => {
+    const query = accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';
+    return apiRequest<{ transactions: Transaction[] }>(`/transactions${query}`);
+  },
+  create: async (data: {
+    accountId: string;
+    amount: number;
+    type: 'credit' | 'debit';
+    label?: string;
+    occurredAt?: string;
+    category?: string;
+    notes?: string;
+  }): Promise<ApiResponse<{ transaction: Transaction }>> => {
+    return apiRequest<{ transaction: Transaction }>('/transactions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  update: async (
+    transactionId: string,
+    data: {
+      accountId?: string;
+      amount?: number;
+      type?: 'credit' | 'debit';
+      label?: string;
+      occurredAt?: string;
+      category?: string;
+      notes?: string;
+    }
+  ): Promise<ApiResponse<{ transaction: Transaction }>> => {
+    return apiRequest<{ transaction: Transaction }>(`/transactions/${transactionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  delete: async (transactionId: string): Promise<ApiResponse<{ message: string }>> => {
+    return apiRequest<{ message: string }>(`/transactions/${transactionId}`, {
+      method: 'DELETE',
+    });
+  },
+};

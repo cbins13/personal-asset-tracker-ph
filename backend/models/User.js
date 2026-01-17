@@ -58,6 +58,12 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    accounts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Account',
+      },
+    ],
   },
   {
     timestamps: true, // Adds createdAt and updatedAt
