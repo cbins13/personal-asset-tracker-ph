@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Permission from '../models/Permission.js';
 import Role from '../models/Role.js';
@@ -113,7 +114,7 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
     }
   } catch (error) {
     console.error('Admin list users error:', error);
-    res.status(500).json({ error: 'Failed to list users', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to list users', details: error.message });
   }
 });
 
@@ -123,7 +124,7 @@ router.get('/profile', requireAuth, async (req, res) => {
     const { includePermissionDetails } = req.query;
     const user = await User.findById(req.session.userId).select('-password');
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
     // If includePermissionDetails is true, populate permission details
@@ -164,7 +165,7 @@ router.get('/profile', requireAuth, async (req, res) => {
     }
   } catch (error) {
     console.error('Get profile error:', error);
-    res.status(500).json({ error: 'Failed to get profile', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to get profile', details: error.message });
   }
 });
 
@@ -175,7 +176,7 @@ router.put('/profile', requireAuth, async (req, res) => {
     const user = await User.findById(req.session.userId);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
     if (name) user.name = name;
@@ -201,16 +202,21 @@ router.put('/profile', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Update profile error:', error);
-    res.status(500).json({ error: 'Failed to update profile', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to update profile', details: error.message });
   }
 });
 
 // Admin: Get user permissions with details
 router.get('/:id/permissions', requireAuth, requireAdmin, async (req, res) => {
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid user ID format' });
+    }
+
     const user = await User.findById(req.params.id).select('permissions');
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
     const permissionNames = user.permissions || [];
@@ -239,7 +245,7 @@ router.get('/:id/permissions', requireAuth, requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('Get user permissions error:', error);
-    res.status(500).json({ error: 'Failed to get user permissions', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to get user permissions', details: error.message });
   }
 });
 
@@ -252,16 +258,22 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     const { roles, permissions, isActive } = req.body;
     const currentAdminId = req.session.userId;
 
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid user ID format' });
+    }
+
     // Find the target user
     const targetUser = await User.findById(id);
     if (!targetUser) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
     // Security check: Prevent admin from removing their own admin role
     if (id === currentAdminId.toString()) {
       if (roles && Array.isArray(roles) && !roles.includes('admin')) {
         return res.status(400).json({
+          success: false,
           error: 'Cannot remove your own admin role',
         });
       }
@@ -270,7 +282,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     // Validate and update roles
     if (roles !== undefined) {
       if (!Array.isArray(roles)) {
-        return res.status(400).json({ error: 'Roles must be an array' });
+        return res.status(400).json({ success: false, error: 'Roles must be an array' });
       }
 
       // Validate each role exists in Roles collection
@@ -285,8 +297,9 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
         if (invalidRoles.length > 0) {
           return res.status(400).json({
+            success: false,
             error: `Invalid or inactive roles: ${invalidRoles.join(', ')}`,
-            message: 'Roles must exist in the Roles collection and be active',
+            details: 'Roles must exist in the Roles collection and be active',
           });
         }
       }
@@ -300,6 +313,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
         if (adminCount === 0) {
           return res.status(400).json({
+            success: false,
             error: 'Cannot remove the last admin. At least one admin must remain.',
           });
         }
@@ -311,7 +325,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     // Validate and update permissions
     if (permissions !== undefined) {
       if (!Array.isArray(permissions)) {
-        return res.status(400).json({ error: 'Permissions must be an array' });
+        return res.status(400).json({ success: false, error: 'Permissions must be an array' });
       }
 
       // Validate each permission exists in Permissions collection
@@ -328,8 +342,9 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
         if (invalidPermissions.length > 0) {
           return res.status(400).json({
+            success: false,
             error: `Invalid or inactive permissions: ${invalidPermissions.join(', ')}`,
-            message: 'Permissions must exist in the Permissions collection and be active',
+            details: 'Permissions must exist in the Permissions collection and be active',
           });
         }
       }
@@ -340,7 +355,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     // Update isActive status
     if (isActive !== undefined) {
       if (typeof isActive !== 'boolean') {
-        return res.status(400).json({ error: 'isActive must be a boolean' });
+        return res.status(400).json({ success: false, error: 'isActive must be a boolean' });
       }
       
       // Prevent deactivating the last admin
@@ -353,6 +368,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
         if (adminCount === 0) {
           return res.status(400).json({
+            success: false,
             error: 'Cannot deactivate the last admin. At least one active admin must remain.',
           });
         }
@@ -384,6 +400,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({
+      success: false,
       error: 'Failed to update user',
       details: error.message,
     });

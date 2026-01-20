@@ -16,7 +16,7 @@ router.get('/', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get categories error:', error);
-    res.status(500).json({ error: 'Failed to get categories', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to get categories', details: error.message });
   }
 });
 

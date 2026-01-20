@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Transaction from '../models/Transaction.js';
 import Account from '../models/Account.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -24,15 +25,23 @@ function getLegacyType(kind) {
 
 const allowedKinds = ['expense', 'income', 'installment', 'transfer'];
 
-async function adjustAccountBalance(accountId, userId, delta) {
-  const account = await Account.findOne({ _id: accountId, userId });
+async function adjustAccountBalance(accountId, userId, delta, session = null) {
+  const query = Account.findOne({ _id: accountId, userId });
+  if (session) {
+    query.session(session);
+  }
+  const account = await query;
   if (!account) {
     const error = new Error('Account not found');
     error.status = 404;
     throw error;
   }
   account.currentBalance = (account.currentBalance || 0) + delta;
-  await account.save();
+  if (session) {
+    await account.save({ session });
+  } else {
+    await account.save();
+  }
   return account;
 }
 
@@ -80,12 +89,15 @@ router.get('/', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get transactions error:', error);
-    res.status(500).json({ error: 'Failed to get transactions', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to get transactions', details: error.message });
   }
 });
 
 // Create transaction
 router.post('/', requireAuth, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const {
       accountId,
@@ -103,27 +115,38 @@ router.post('/', requireAuth, async (req, res) => {
     } = req.body;
 
     if (transactionKind && !allowedKinds.includes(transactionKind)) {
-      return res.status(400).json({ error: 'transactionKind is invalid' });
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'transactionKind is invalid' });
     }
 
     if (amount === undefined || Number.isNaN(Number(amount)) || Number(amount) <= 0) {
-      return res.status(400).json({ error: 'amount must be a positive number' });
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'amount must be a positive number' });
     }
 
     const kind = normalizeTransactionKind({ transactionKind, type });
 
     if (kind === 'transfer') {
       if (!fromAccountId || !toAccountId) {
-        return res.status(400).json({ error: 'fromAccountId and toAccountId are required for transfers' });
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, error: 'fromAccountId and toAccountId are required for transfers' });
       }
       if (fromAccountId === toAccountId) {
-        return res.status(400).json({ error: 'fromAccountId and toAccountId must be different' });
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, error: 'fromAccountId and toAccountId must be different' });
+      }
+
+      // Validate ObjectId formats
+      if (!mongoose.Types.ObjectId.isValid(fromAccountId) || !mongoose.Types.ObjectId.isValid(toAccountId)) {
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, error: 'Invalid account ID format' });
       }
 
       const fromAccount = await Account.findOne({ _id: fromAccountId, userId: req.session.userId });
       const toAccount = await Account.findOne({ _id: toAccountId, userId: req.session.userId });
       if (!fromAccount || !toAccount) {
-        return res.status(404).json({ error: 'Account not found' });
+        await session.abortTransaction();
+        return res.status(404).json({ success: false, error: 'Account not found' });
       }
 
       const transaction = new Transaction({
@@ -140,10 +163,12 @@ router.post('/', requireAuth, async (req, res) => {
         notes,
       });
 
-      await transaction.save();
+      await transaction.save({ session });
       fromAccount.currentBalance = (fromAccount.currentBalance || 0) - Math.abs(amount);
       toAccount.currentBalance = (toAccount.currentBalance || 0) + Math.abs(amount);
-      await Promise.all([fromAccount.save(), toAccount.save()]);
+      await Promise.all([fromAccount.save({ session }), toAccount.save({ session })]);
+
+      await session.commitTransaction();
 
       const { _id, ...rest } = transaction.toObject({ versionKey: false });
       res.status(201).json({ success: true, transaction: { id: _id, ...rest } });
@@ -151,12 +176,20 @@ router.post('/', requireAuth, async (req, res) => {
     }
 
     if (!accountId) {
-      return res.status(400).json({ error: 'accountId is required' });
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'accountId is required' });
+    }
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(accountId)) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'Invalid account ID format' });
     }
 
     const account = await Account.findOne({ _id: accountId, userId: req.session.userId });
     if (!account) {
-      return res.status(404).json({ error: 'Account not found' });
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, error: 'Account not found' });
     }
 
     const normalizedType = getLegacyType(kind);
@@ -174,22 +207,36 @@ router.post('/', requireAuth, async (req, res) => {
       notes,
     });
 
-    await transaction.save();
+    await transaction.save({ session });
     const signedAmount = getSignedAmount(amount, kind);
     account.currentBalance = (account.currentBalance || 0) + signedAmount;
-    await account.save();
+    await account.save({ session });
+
+    await session.commitTransaction();
 
     const { _id, ...rest } = transaction.toObject({ versionKey: false });
     res.status(201).json({ success: true, transaction: { id: _id, ...rest } });
   } catch (error) {
+    await session.abortTransaction();
     console.error('Create transaction error:', error);
-    res.status(500).json({ error: 'Failed to create transaction', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to create transaction', details: error.message });
+  } finally {
+    session.endSession();
   }
 });
 
 // Update transaction
 router.put('/:id', requireAuth, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'Invalid transaction ID format' });
+    }
+
     const {
       amount,
       type,
@@ -206,19 +253,23 @@ router.put('/:id', requireAuth, async (req, res) => {
     } = req.body;
     const transaction = await Transaction.findOne({ _id: req.params.id, userId: req.session.userId });
     if (!transaction) {
-      return res.status(404).json({ error: 'Transaction not found' });
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, error: 'Transaction not found' });
     }
 
     if (type !== undefined && !['credit', 'debit'].includes(type)) {
-      return res.status(400).json({ error: 'type must be credit or debit' });
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'type must be credit or debit' });
     }
 
     if (transactionKind && !allowedKinds.includes(transactionKind)) {
-      return res.status(400).json({ error: 'transactionKind is invalid' });
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'transactionKind is invalid' });
     }
 
     if (amount !== undefined && (Number.isNaN(Number(amount)) || Number(amount) <= 0)) {
-      return res.status(400).json({ error: 'amount must be a positive number' });
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'amount must be a positive number' });
     }
 
     const originalKind = normalizeTransactionKind({
@@ -235,24 +286,34 @@ router.put('/:id', requireAuth, async (req, res) => {
       const nextFrom = fromAccountId ?? transaction.fromAccountId?.toString();
       const nextTo = toAccountId ?? transaction.toAccountId?.toString();
       if (!nextFrom || !nextTo) {
-        return res.status(400).json({ error: 'fromAccountId and toAccountId are required for transfers' });
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, error: 'fromAccountId and toAccountId are required for transfers' });
       }
       if (nextFrom === nextTo) {
-        return res.status(400).json({ error: 'fromAccountId and toAccountId must be different' });
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, error: 'fromAccountId and toAccountId must be different' });
+      }
+
+      // Validate ObjectId formats
+      if (!mongoose.Types.ObjectId.isValid(nextFrom) || !mongoose.Types.ObjectId.isValid(nextTo)) {
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, error: 'Invalid account ID format' });
       }
 
       if (originalKind === 'transfer') {
         const originalFrom = transaction.fromAccountId?.toString();
         const originalTo = transaction.toAccountId?.toString();
-        if (originalFrom) await adjustAccountBalance(originalFrom, req.session.userId, Math.abs(transaction.amount));
-        if (originalTo) await adjustAccountBalance(originalTo, req.session.userId, -Math.abs(transaction.amount));
+        if (originalFrom) await adjustAccountBalance(originalFrom, req.session.userId, Math.abs(transaction.amount), session);
+        if (originalTo) await adjustAccountBalance(originalTo, req.session.userId, -Math.abs(transaction.amount), session);
       } else if (transaction.accountId) {
         const originalSigned = getSignedAmount(transaction.amount, originalKind);
-        await adjustAccountBalance(transaction.accountId, req.session.userId, -originalSigned);
+        // Use string format for consistency
+        const originalAccountId = transaction.accountId.toString();
+        await adjustAccountBalance(originalAccountId, req.session.userId, -originalSigned, session);
       }
 
-      await adjustAccountBalance(nextFrom, req.session.userId, -Math.abs(nextAmount));
-      await adjustAccountBalance(nextTo, req.session.userId, Math.abs(nextAmount));
+      await adjustAccountBalance(nextFrom, req.session.userId, -Math.abs(nextAmount), session);
+      await adjustAccountBalance(nextTo, req.session.userId, Math.abs(nextAmount), session);
 
       transaction.fromAccountId = nextFrom;
       transaction.toAccountId = nextTo;
@@ -262,21 +323,30 @@ router.put('/:id', requireAuth, async (req, res) => {
     } else {
       const nextAccountId = accountId ?? transaction.accountId?.toString();
       if (!nextAccountId) {
-        return res.status(400).json({ error: 'accountId is required' });
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, error: 'accountId is required' });
+      }
+
+      // Validate ObjectId format
+      if (!mongoose.Types.ObjectId.isValid(nextAccountId)) {
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, error: 'Invalid account ID format' });
       }
 
       if (originalKind === 'transfer') {
         const originalFrom = transaction.fromAccountId?.toString();
         const originalTo = transaction.toAccountId?.toString();
-        if (originalFrom) await adjustAccountBalance(originalFrom, req.session.userId, Math.abs(transaction.amount));
-        if (originalTo) await adjustAccountBalance(originalTo, req.session.userId, -Math.abs(transaction.amount));
+        if (originalFrom) await adjustAccountBalance(originalFrom, req.session.userId, Math.abs(transaction.amount), session);
+        if (originalTo) await adjustAccountBalance(originalTo, req.session.userId, -Math.abs(transaction.amount), session);
       } else if (transaction.accountId) {
         const originalSigned = getSignedAmount(transaction.amount, originalKind);
-        await adjustAccountBalance(transaction.accountId, req.session.userId, -originalSigned);
+        // Use string format for consistency
+        const originalAccountId = transaction.accountId.toString();
+        await adjustAccountBalance(originalAccountId, req.session.userId, -originalSigned, session);
       }
 
       const nextSigned = getSignedAmount(nextAmount, nextKind);
-      await adjustAccountBalance(nextAccountId, req.session.userId, nextSigned);
+      await adjustAccountBalance(nextAccountId, req.session.userId, nextSigned, session);
 
       transaction.accountId = nextAccountId;
       transaction.fromAccountId = undefined;
@@ -293,22 +363,37 @@ router.put('/:id', requireAuth, async (req, res) => {
     if (recordInBudget !== undefined) transaction.recordInBudget = recordInBudget;
     if (notes !== undefined) transaction.notes = notes;
 
-    await transaction.save();
+    await transaction.save({ session });
+
+    await session.commitTransaction();
 
     const { _id, ...rest } = transaction.toObject({ versionKey: false });
     res.json({ success: true, transaction: { id: _id, ...rest } });
   } catch (error) {
+    await session.abortTransaction();
     console.error('Update transaction error:', error);
-    res.status(500).json({ error: 'Failed to update transaction', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to update transaction', details: error.message });
+  } finally {
+    session.endSession();
   }
 });
 
 // Delete transaction
 router.delete('/:id', requireAuth, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'Invalid transaction ID format' });
+    }
+
     const transaction = await Transaction.findOne({ _id: req.params.id, userId: req.session.userId });
     if (!transaction) {
-      return res.status(404).json({ error: 'Transaction not found' });
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, error: 'Transaction not found' });
     }
 
     const kind = normalizeTransactionKind({
@@ -317,21 +402,26 @@ router.delete('/:id', requireAuth, async (req, res) => {
     });
     if (kind === 'transfer') {
       if (transaction.fromAccountId) {
-        await adjustAccountBalance(transaction.fromAccountId, req.session.userId, Math.abs(transaction.amount));
+        await adjustAccountBalance(transaction.fromAccountId, req.session.userId, Math.abs(transaction.amount), session);
       }
       if (transaction.toAccountId) {
-        await adjustAccountBalance(transaction.toAccountId, req.session.userId, -Math.abs(transaction.amount));
+        await adjustAccountBalance(transaction.toAccountId, req.session.userId, -Math.abs(transaction.amount), session);
       }
     } else if (transaction.accountId) {
       const signedAmount = getSignedAmount(transaction.amount, kind);
-      await adjustAccountBalance(transaction.accountId, req.session.userId, -signedAmount);
+      await adjustAccountBalance(transaction.accountId, req.session.userId, -signedAmount, session);
     }
-    await Transaction.deleteOne({ _id: transaction._id });
+    await Transaction.deleteOne({ _id: transaction._id }, { session });
+
+    await session.commitTransaction();
 
     res.json({ success: true, message: 'Transaction deleted successfully' });
   } catch (error) {
+    await session.abortTransaction();
     console.error('Delete transaction error:', error);
-    res.status(500).json({ error: 'Failed to delete transaction', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to delete transaction', details: error.message });
+  } finally {
+    session.endSession();
   }
 });
 

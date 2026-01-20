@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import AccountType from '../models/AccountType.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -18,16 +19,21 @@ router.get('/', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get account types error:', error);
-    res.status(500).json({ error: 'Failed to get account types', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to get account types', details: error.message });
   }
 });
 
 // Get single account type by ID
 router.get('/:id', requireAuth, async (req, res) => {
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid account type ID format' });
+    }
+
     const accountType = await AccountType.findById(req.params.id);
     if (!accountType) {
-      return res.status(404).json({ error: 'Account type not found' });
+      return res.status(404).json({ success: false, error: 'Account type not found' });
     }
 
     const { _id, ...rest } = accountType.toObject({ versionKey: false });
@@ -37,7 +43,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get account type error:', error);
-    res.status(500).json({ error: 'Failed to get account type', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to get account type', details: error.message });
   }
 });
 

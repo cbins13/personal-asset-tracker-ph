@@ -20,7 +20,7 @@ router.post('/google', async (req, res) => {
     const { credential, clientId } = req.body;
 
     if (!credential) {
-      return res.status(400).json({ error: 'Credential is required' });
+      return res.status(400).json({ success: false, error: 'Credential is required' });
     }
 
     // Use clientId from request if provided, otherwise use env variable
@@ -28,7 +28,7 @@ router.post('/google', async (req, res) => {
     const googleClientId = clientId || process.env.GOOGLE_CLIENT_ID;
     
     if (!googleClientId) {
-      return res.status(500).json({ error: 'Google Client ID not configured' });
+      return res.status(500).json({ success: false, error: 'Google Client ID not configured' });
     }
 
     // Create a new OAuth2Client with the correct Client ID
@@ -66,6 +66,7 @@ router.post('/google', async (req, res) => {
     if (!ticket) {
       console.error('Google token verification failed:', lastError?.message);
       return res.status(401).json({ 
+        success: false,
         error: 'Invalid Google token', 
         details: 'Token verification failed. Please try logging in again.' 
       });
@@ -135,11 +136,13 @@ router.post('/google', async (req, res) => {
     // Provide more helpful error messages
     if (error.message && error.message.includes('audience')) {
       return res.status(401).json({ 
+        success: false,
         error: 'Authentication failed', 
         details: 'Invalid Google Client ID configuration. Please check your environment variables.' 
       });
     }
     res.status(500).json({ 
+      success: false,
       error: 'Authentication failed', 
       details: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred during authentication' 
     });
@@ -152,19 +155,19 @@ router.post('/register', async (req, res) => {
     const { email, password, name } = req.body;
 
     if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Email, password, and name are required' });
+      return res.status(400).json({ success: false, error: 'Email, password, and name are required' });
     }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
+      return res.status(400).json({ success: false, error: 'User already exists' });
     }
 
     // Validate password strength
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
-      return res.status(400).json({ error: passwordValidation.message });
+      return res.status(400).json({ success: false, error: passwordValidation.message });
     }
 
     // Hash password with bcrypt
@@ -209,7 +212,7 @@ router.post('/register', async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed', details: error.message });
+    res.status(500).json({ success: false, error: 'Registration failed', details: error.message });
   }
 });
 
@@ -219,18 +222,18 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      return res.status(400).json({ success: false, error: 'Email and password are required' });
     }
 
     const user = await User.findOne({ email, provider: 'local' });
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
     // Verify password with bcrypt
     const isPasswordValid = await comparePassword(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
     // Update last login
@@ -267,7 +270,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed', details: error.message });
+    res.status(500).json({ success: false, error: 'Login failed', details: error.message });
   }
 });
 
@@ -275,7 +278,7 @@ router.post('/login', async (req, res) => {
 router.post('/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
-      return res.status(500).json({ error: 'Logout failed' });
+      return res.status(500).json({ success: false, error: 'Logout failed' });
     }
     res.clearCookie('connect.sid');
     res.json({ success: true, message: 'Logged out successfully' });
@@ -286,12 +289,12 @@ router.post('/logout', (req, res) => {
 router.get('/me', async (req, res) => {
   try {
     if (!req.session || !req.session.userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ success: false, error: 'Not authenticated' });
     }
 
     const user = await User.findById(req.session.userId).select('-password');
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
     res.json({
@@ -311,7 +314,7 @@ router.get('/me', async (req, res) => {
     });
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(500).json({ error: 'Failed to get user', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to get user', details: error.message });
   }
 });
 

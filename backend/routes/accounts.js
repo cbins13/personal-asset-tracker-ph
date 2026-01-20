@@ -1,6 +1,8 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Account from '../models/Account.js';
 import AccountType from '../models/AccountType.js';
+import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -123,6 +125,17 @@ async function isAccountTypeAllowed(type) {
   return !!exists;
 }
 
+// Helper functions for transaction creation (similar to transactions.js)
+function getSignedAmount(amount, kind) {
+  return kind === 'income' ? Math.abs(amount) : -Math.abs(amount);
+}
+
+function getLegacyType(kind) {
+  if (kind === 'income') return 'credit';
+  if (kind === 'expense' || kind === 'installment') return 'debit';
+  return undefined;
+}
+
 // Get all accounts for current user
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -139,66 +152,118 @@ router.get('/', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get accounts error:', error);
-    res.status(500).json({ error: 'Failed to get accounts', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to get accounts', details: error.message });
   }
 });
 
 // Create new account for current user
 router.post('/', requireAuth, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
   try {
     const { accountName, type, transactions, currentBalance, addToNetWorth, providerId, providerLabel } =
       req.body;
 
     if (!accountName || !type) {
-      return res.status(400).json({ error: 'accountName and type are required' });
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'accountName and type are required' });
     }
 
     if (transactions !== undefined && !Array.isArray(transactions)) {
-      return res.status(400).json({ error: 'transactions must be an array' });
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'transactions must be an array' });
     }
 
     const isAllowedType = await isAccountTypeAllowed(type);
     if (!isAllowedType) {
-      return res.status(400).json({ error: `Account type "${type}" is not supported` });
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: `Account type "${type}" is not supported` });
     }
 
+    // Store the initial balance value before creating account with 0
+    const initialBalance = currentBalance ?? 0;
+
+    // Create account with balance = 0 initially
+    // The balance will be set by the initial transaction if provided
     const account = new Account({
       userId: req.session.userId,
       accountName,
       type,
-      currentBalance: currentBalance ?? 0,
+      currentBalance: 0,
       addToNetWorth: addToNetWorth ?? true,
       providerId,
       providerLabel,
       transactions: transactions || [],
     });
 
-    await account.save();
-    await User.findByIdAndUpdate(req.session.userId, {
-      $addToSet: { accounts: account._id },
-    });
+    await account.save({ session });
+    await User.findByIdAndUpdate(
+      req.session.userId,
+      { $addToSet: { accounts: account._id } },
+      { session }
+    );
 
-    const { _id, ...rest } = account.toObject({ versionKey: false });
+    // Create initial balance transaction if non-zero
+    if (initialBalance !== 0) {
+      // Determine transaction kind based on balance sign
+      const transactionKind = initialBalance > 0 ? 'income' : 'expense';
+      const transactionAmount = Math.abs(initialBalance);
+      const normalizedType = getLegacyType(transactionKind);
+
+      const transaction = new Transaction({
+        userId: req.session.userId,
+        accountId: account._id,
+        amount: transactionAmount,
+        type: normalizedType,
+        transactionKind: transactionKind,
+        label: 'Initial balance',
+        occurredAt: new Date(),
+        recordInBudget: false,
+      });
+
+      await transaction.save({ session });
+
+      // Update account balance based on transaction
+      const signedAmount = getSignedAmount(transactionAmount, transactionKind);
+      account.currentBalance = (account.currentBalance || 0) + signedAmount;
+      await account.save({ session });
+    }
+
+    await session.commitTransaction();
+
+    // Reload account to get updated balance
+    const updatedAccount = await Account.findById(account._id);
+    const { _id, ...rest } = updatedAccount.toObject({ versionKey: false });
     res.status(201).json({
       success: true,
       account: { id: _id, ...rest },
     });
   } catch (error) {
+    await session.abortTransaction();
     console.error('Create account error:', error);
-    res.status(500).json({ error: 'Failed to create account', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to create account', details: error.message });
+  } finally {
+    session.endSession();
   }
 });
 
 // Get single account by ID (current user only)
 router.get('/:id', requireAuth, async (req, res) => {
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid account ID format' });
+    }
+
     const account = await Account.findOne({
       _id: req.params.id,
       userId: req.session.userId,
     });
 
+
     if (!account) {
-      return res.status(404).json({ error: 'Account not found' });
+      return res.status(404).json({ success: false, error: 'Account not found' });
     }
 
     const { _id, ...rest } = account.toObject({ versionKey: false });
@@ -208,13 +273,18 @@ router.get('/:id', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get account error:', error);
-    res.status(500).json({ error: 'Failed to get account', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to get account', details: error.message });
   }
 });
 
 // Update account
 router.put('/:id', requireAuth, async (req, res) => {
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid account ID format' });
+    }
+
     const { accountName, type, transactions, currentBalance, addToNetWorth, providerId, providerLabel } =
       req.body;
     const account = await Account.findOne({
@@ -223,24 +293,35 @@ router.put('/:id', requireAuth, async (req, res) => {
     });
 
     if (!account) {
-      return res.status(404).json({ error: 'Account not found' });
+      return res.status(404).json({ success: false, error: 'Account not found' });
     }
 
     if (transactions !== undefined && !Array.isArray(transactions)) {
-      return res.status(400).json({ error: 'transactions must be an array' });
+      return res.status(400).json({ success: false, error: 'transactions must be an array' });
     }
 
     if (type !== undefined) {
       const isAllowedType = await isAccountTypeAllowed(type);
       if (!isAllowedType) {
-        return res.status(400).json({ error: `Account type "${type}" is not supported` });
+        return res.status(400).json({ success: false, error: `Account type "${type}" is not supported` });
       }
       account.type = type;
     }
 
-    if (accountName !== undefined) account.accountName = accountName;
-    if (transactions !== undefined) account.transactions = transactions;
-    if (currentBalance !== undefined) account.currentBalance = currentBalance;
+    if (accountName !== undefined) {
+      if (!accountName.trim()) {
+        return res.status(400).json({ success: false, error: 'accountName cannot be empty' });
+      }
+      account.accountName = accountName;
+    }
+
+    // Prevent direct currentBalance updates - balance should only change via transactions
+    if (currentBalance !== undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot update currentBalance directly. Balance changes must be made through transactions.',
+      });
+    }
     if (addToNetWorth !== undefined) account.addToNetWorth = addToNetWorth;
     if (providerId !== undefined) account.providerId = providerId;
     if (providerLabel !== undefined) account.providerLabel = providerLabel;
@@ -254,31 +335,65 @@ router.put('/:id', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Update account error:', error);
-    res.status(500).json({ error: 'Failed to update account', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to update account', details: error.message });
   }
 });
 
 // Delete account
 router.delete('/:id', requireAuth, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, error: 'Invalid account ID format' });
+    }
+
     const account = await Account.findOne({
       _id: req.params.id,
       userId: req.session.userId,
     });
 
     if (!account) {
-      return res.status(404).json({ error: 'Account not found' });
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, error: 'Account not found' });
     }
 
-    await Account.findByIdAndDelete(account._id);
-    await User.findByIdAndUpdate(req.session.userId, {
-      $pull: { accounts: account._id },
+    // Check if account has any transactions
+    const transactionCount = await Transaction.countDocuments({
+      $or: [
+        { accountId: account._id },
+        { fromAccountId: account._id },
+        { toAccountId: account._id },
+      ],
     });
 
+    if (transactionCount > 0) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete account with existing transactions',
+        details: `This account has ${transactionCount} transaction(s). Delete or reassign all transactions before deleting the account.`,
+      });
+    }
+
+    await Account.findByIdAndDelete(account._id, { session });
+    await User.findByIdAndUpdate(
+      req.session.userId,
+      { $pull: { accounts: account._id } },
+      { session }
+    );
+
+    await session.commitTransaction();
     res.json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {
+    await session.abortTransaction();
     console.error('Delete account error:', error);
-    res.status(500).json({ error: 'Failed to delete account', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to delete account', details: error.message });
+  } finally {
+    session.endSession();
   }
 });
 
