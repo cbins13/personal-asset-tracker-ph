@@ -11,7 +11,16 @@ const transactionSchema = new mongoose.Schema(
     accountId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Account',
-      required: true,
+      index: true,
+    },
+    fromAccountId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Account',
+      index: true,
+    },
+    toAccountId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Account',
       index: true,
     },
     amount: {
@@ -21,7 +30,16 @@ const transactionSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: ['credit', 'debit'],
-      required: true,
+    },
+    transactionKind: {
+      type: String,
+      enum: ['expense', 'income', 'installment', 'transfer'],
+      default: 'expense',
+      index: true,
+    },
+    recordInBudget: {
+      type: Boolean,
+      default: false,
     },
     label: {
       type: String,
@@ -29,6 +47,16 @@ const transactionSchema = new mongoose.Schema(
       default: '',
     },
     category: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category',
+      index: true,
+    },
+    categoryLabel: {
       type: String,
       trim: true,
       default: '',

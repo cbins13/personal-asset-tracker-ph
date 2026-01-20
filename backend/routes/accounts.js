@@ -44,6 +44,73 @@ const accountProvidersByType = {
   ],
 };
 
+const defaultAccountTypes = [
+  {
+    type: 'Savings',
+    data: {
+      accountName: 'Savings',
+      interestRate: 0,
+      goalAmount: 0,
+      currentBalance: 0,
+    },
+  },
+  {
+    type: 'Wallet',
+    data: {
+      walletName: 'Wallet',
+      currentBalance: 0,
+    },
+  },
+  {
+    type: 'Investments',
+    data: {
+      investmentName: 'Investments',
+      startingBalance: 0,
+      interestRate: 0,
+      startDate: new Date(),
+      endDate: new Date(),
+    },
+  },
+  {
+    type: 'Credit',
+    data: {
+      accountName: 'Credit',
+      currentBalance: 0,
+    },
+  },
+  {
+    type: 'Loans',
+    data: {
+      accountName: 'Loans',
+      currentBalance: 0,
+    },
+  },
+];
+
+let ensureAccountTypesPromise = null;
+
+async function ensureAccountTypes() {
+  if (ensureAccountTypesPromise) {
+    await ensureAccountTypesPromise;
+    return;
+  }
+
+  ensureAccountTypesPromise = (async () => {
+    const existingCount = await AccountType.countDocuments();
+    if (existingCount > 0) return;
+
+    for (const accountType of defaultAccountTypes) {
+      const AccountTypeModel = AccountType.discriminators?.[accountType.type];
+      if (!AccountTypeModel) continue;
+
+      const accountTypeDoc = new AccountTypeModel(accountType.data);
+      await accountTypeDoc.save();
+    }
+  })();
+
+  await ensureAccountTypesPromise;
+}
+
 // Get account providers catalog
 router.get('/providers', requireAuth, async (req, res) => {
   res.json({ success: true, providersByType: accountProvidersByType });
@@ -51,6 +118,7 @@ router.get('/providers', requireAuth, async (req, res) => {
 
 async function isAccountTypeAllowed(type) {
   if (!type) return false;
+  await ensureAccountTypes();
   const exists = await AccountType.exists({ type });
   return !!exists;
 }

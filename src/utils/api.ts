@@ -251,16 +251,33 @@ export interface Account {
   updatedAt?: string;
 }
 
+export type TransactionKind = 'expense' | 'income' | 'installment' | 'transfer';
+
 export interface Transaction {
   id: string;
-  accountId: string;
+  accountId?: string;
+  fromAccountId?: string;
+  toAccountId?: string;
   amount: number;
-  type: 'credit' | 'debit';
+  type?: 'credit' | 'debit';
+  transactionKind?: TransactionKind;
+  recordInBudget?: boolean;
   label?: string;
-  category?: string;
+  categoryId?: string;
+  categoryLabel?: string;
   notes?: string;
   occurredAt?: string;
   createdAt?: string;
+  account?: Account;
+  fromAccount?: Account;
+  toAccount?: Account;
+}
+
+export interface Category {
+  id: string;
+  label: string;
+  emoji?: string;
+  type?: string;
 }
 
 export type ProvidersByType = Record<string, { id: string; label: string; accent: string }[]>;
@@ -312,17 +329,33 @@ export const accountsApi = {
 };
 
 export const transactionsApi = {
-  list: async (accountId?: string): Promise<ApiResponse<{ transactions: Transaction[] }>> => {
-    const query = accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';
-    return apiRequest<{ transactions: Transaction[] }>(`/transactions${query}`);
+  list: async (
+    options?: string | { accountId?: string; kind?: TransactionKind; includeAccounts?: boolean }
+  ): Promise<ApiResponse<{ transactions: Transaction[] }>> => {
+    const query =
+      typeof options === 'string'
+        ? `accountId=${encodeURIComponent(options)}`
+        : new URLSearchParams(
+            Object.entries({
+              accountId: options?.accountId,
+              kind: options?.kind,
+              includeAccounts: options?.includeAccounts ? 'true' : undefined,
+            }).filter(([, value]) => value)
+          ).toString();
+    return apiRequest<{ transactions: Transaction[] }>(`/transactions${query ? `?${query}` : ''}`);
   },
   create: async (data: {
-    accountId: string;
+    accountId?: string;
+    fromAccountId?: string;
+    toAccountId?: string;
     amount: number;
-    type: 'credit' | 'debit';
+    type?: 'credit' | 'debit';
+    transactionKind?: TransactionKind;
+    recordInBudget?: boolean;
     label?: string;
     occurredAt?: string;
-    category?: string;
+    categoryId?: string;
+    categoryLabel?: string;
     notes?: string;
   }): Promise<ApiResponse<{ transaction: Transaction }>> => {
     return apiRequest<{ transaction: Transaction }>('/transactions', {
@@ -334,11 +367,16 @@ export const transactionsApi = {
     transactionId: string,
     data: {
       accountId?: string;
+      fromAccountId?: string;
+      toAccountId?: string;
       amount?: number;
       type?: 'credit' | 'debit';
+      transactionKind?: TransactionKind;
+      recordInBudget?: boolean;
       label?: string;
       occurredAt?: string;
-      category?: string;
+      categoryId?: string;
+      categoryLabel?: string;
       notes?: string;
     }
   ): Promise<ApiResponse<{ transaction: Transaction }>> => {
@@ -351,5 +389,11 @@ export const transactionsApi = {
     return apiRequest<{ message: string }>(`/transactions/${transactionId}`, {
       method: 'DELETE',
     });
+  },
+};
+
+export const categoriesApi = {
+  list: async (): Promise<ApiResponse<{ categories: Category[] }>> => {
+    return apiRequest<{ categories: Category[] }>('/categories');
   },
 };

@@ -11,6 +11,7 @@ import roleRoutes from './routes/roles.js';
 import accountRoutes from './routes/accounts.js';
 import accountTypeRoutes from './routes/accountTypes.js';
 import transactionRoutes from './routes/transactions.js';
+import categoryRoutes from './routes/categories.js';
 import { sessionMiddleware, sessionLogger } from './middleware/session.js';
 
 // Load environment variables
@@ -76,6 +77,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/account-types', accountTypeRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // 404 handler (must come before error handler)
 app.use((req, res) => {

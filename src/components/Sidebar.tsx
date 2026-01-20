@@ -29,6 +29,21 @@ const sidebarItems: SidebarItem[] = [
     roles: ["user", "admin"],
   },
   {
+    label: "Transactions",
+    to: "/transactions",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M3 7h18M3 12h12M3 17h18"
+        />
+      </svg>
+    ),
+    roles: ["user", "admin"],
+  },
+  {
     label: "User Management",
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

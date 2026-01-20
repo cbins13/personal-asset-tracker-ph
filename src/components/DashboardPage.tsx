@@ -4,7 +4,19 @@ import { useAuth } from "../auth";
 import logoSmall from "../assets/savvi_logo.png";
 import AnimatedContent from "../effects/AnimatedContent";
 import Sidebar from "./Sidebar";
-import { accountsApi, transactionsApi, type Account, type ProvidersByType, type Transaction } from "../utils/api";
+import {
+  accountsApi,
+  categoriesApi,
+  transactionsApi,
+  type Account,
+  type ProvidersByType,
+  type Transaction,
+} from "../utils/api";
+import { formatCurrency, formatDateTime } from "../utils/formatters";
+import AddTransactionModal, {
+  type AddTransactionPayload,
+  type CategoryOption,
+} from "./transactions/AddTransactionModal";
 
 const accountFilters = ["All", "Wallet", "Savings", "Credit", "Loans", "Investments"];
 const addAccountTabs = ["Wallet", "Savings", "Credit", "Loans", "Investments"];
@@ -47,24 +59,22 @@ const accountProvidersFallback: Record<string, { id: string; label: string; acce
   ],
 };
 
-const formatCurrency = (value: number) =>
-  value.toLocaleString("en-PH", {
-    style: "currency",
-    currency: "PHP",
-  });
-
-const formatDateTime = (value?: string) => {
-  if (!value) return "--";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "--";
-  return date.toLocaleString("en-PH", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
+const fallbackCategories: CategoryOption[] = [
+  { id: "balance-adjustment", label: "Balance Adjustment", emoji: "🔄" },
+  { id: "family-support", label: "Family Support", emoji: "👨‍👩‍👧‍👦" },
+  { id: "food-drinks", label: "Food and Drinks", emoji: "🍔" },
+  { id: "gifts", label: "Gifts", emoji: "🎁" },
+  { id: "grocery", label: "Grocery", emoji: "🛒" },
+  { id: "insurance", label: "Insurance Payment", emoji: "☂️" },
+  { id: "medicine", label: "Medicine", emoji: "💊" },
+  { id: "night-out", label: "Night Out", emoji: "🍻" },
+  { id: "pet", label: "Pet", emoji: "🐶" },
+  { id: "rent", label: "Rent", emoji: "🏠" },
+  { id: "shopping", label: "Shopping", emoji: "🛍️" },
+  { id: "subscriptions", label: "Subscriptions", emoji: "🔔" },
+  { id: "transportation", label: "Transportation", emoji: "🚗" },
+  { id: "utilities", label: "Utilities", emoji: "💡" },
+];
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -92,10 +102,8 @@ export default function DashboardPage() {
   const [providersByType, setProvidersByType] = useState<ProvidersByType>(accountProvidersFallback);
   const [isEditingAccountName, setIsEditingAccountName] = useState(false);
   const [editAccountName, setEditAccountName] = useState("");
-  const [transactionAmount, setTransactionAmount] = useState("");
-  const [transactionType, setTransactionType] = useState<"credit" | "debit">("credit");
-  const [transactionLabel, setTransactionLabel] = useState("");
-  const [transactionDate, setTransactionDate] = useState("");
+  const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
+  const [categories, setCategories] = useState<CategoryOption[]>(fallbackCategories);
 
   const selectedAccount = useMemo(
     () => accounts.find((account) => account.id === selectedAccountId) || null,
@@ -152,9 +160,25 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchTransactions = async (accountId: string) => {
+  const refreshCategories = async () => {
+    const response = await categoriesApi.list();
+    if (response.success && response.data?.categories?.length) {
+      setCategories(
+        response.data.categories.map((category) => ({
+          id: category.id,
+          label: category.label,
+          emoji: category.emoji,
+        }))
+      );
+    }
+  };
+
+  const fetchTransactions = async (accountId?: string) => {
     setIsLoadingTransactions(true);
-    const response = await transactionsApi.list(accountId);
+    const response = await transactionsApi.list({
+      accountId,
+      includeAccounts: true,
+    });
     if (!response.success) {
       setTransactionsError(response.error || "Failed to load transactions.");
       setTransactions([]);
@@ -168,15 +192,11 @@ export default function DashboardPage() {
   useEffect(() => {
     refreshAccounts();
     refreshProviders();
+    refreshCategories();
   }, []);
 
   useEffect(() => {
-    if (!selectedAccountId) {
-      setTransactions([]);
-      setTransactionsError(null);
-      return;
-    }
-    fetchTransactions(selectedAccountId);
+    fetchTransactions(selectedAccountId || undefined);
   }, [selectedAccountId]);
 
   useEffect(() => {
@@ -257,24 +277,43 @@ export default function DashboardPage() {
     }
   };
 
-  const handleAddTransaction = async () => {
-    if (!selectedAccount) return;
-    const amountValue = Number(transactionAmount || 0);
-    if (!amountValue || Number.isNaN(amountValue)) return;
-    const response = await transactionsApi.create({
-      accountId: selectedAccount.id,
-      amount: amountValue,
-      type: transactionType,
-      label: transactionLabel.trim(),
-      occurredAt: transactionDate ? new Date(transactionDate).toISOString() : undefined,
-    });
-    if (response.success) {
-      setTransactionAmount("");
-      setTransactionLabel("");
-      setTransactionDate("");
-      await refreshAccounts();
-      await fetchTransactions(selectedAccount.id);
+  const getTransactionKind = (tx: Transaction) => {
+    if (tx.transactionKind) return tx.transactionKind;
+    if (tx.type === "credit") return "income";
+    if (tx.type === "debit") return "expense";
+    return "expense";
+  };
+
+  const getAccountLabel = (tx: Transaction) => {
+    if (tx.transactionKind === "transfer") {
+      const fromAccount =
+        tx.fromAccount?.accountName ||
+        accounts.find((account) => account.id === tx.fromAccountId)?.accountName ||
+        tx.fromAccountId ||
+        "Source";
+      const toAccount =
+        tx.toAccount?.accountName ||
+        accounts.find((account) => account.id === tx.toAccountId)?.accountName ||
+        tx.toAccountId ||
+        "Destination";
+      return `${fromAccount} → ${toAccount}`;
     }
+    return (
+      tx.account?.accountName ||
+      accounts.find((account) => account.id === tx.accountId)?.accountName ||
+      tx.accountId ||
+      "Account"
+    );
+  };
+
+  const handleCreateTransaction = async (payload: AddTransactionPayload) => {
+    const response = await transactionsApi.create(payload);
+    if (!response.success) {
+      throw new Error(response.error || "Failed to add transaction.");
+    }
+    setIsAddTransactionOpen(false);
+    await refreshAccounts();
+    await fetchTransactions(selectedAccountId || undefined);
   };
 
   const getProviderMeta = (account: Account) => {
@@ -282,6 +321,8 @@ export default function DashboardPage() {
     const providers = providersByType[account.type] || [];
     return providers.find((provider) => provider.id === account.providerId) || null;
   };
+
+  const recentTransactions = useMemo(() => transactions.slice(0, 5), [transactions]);
 
   // User should always be available here since route is protected
   if (auth.isLoading || !user) {
@@ -499,6 +540,53 @@ export default function DashboardPage() {
                     Change order
                   </button>
                 </div>
+
+                <div className="mt-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900">Transactions</h2>
+                    <Link to="/transactions" className="text-sm text-gray-600 hover:text-gray-900">
+                      View all
+                    </Link>
+                  </div>
+                  <div className="mt-4 space-y-4">
+                    {isLoadingTransactions ? (
+                      <p className="text-sm text-gray-500">Loading transactions...</p>
+                    ) : transactionsError ? (
+                      <p className="text-sm text-red-600">{transactionsError}</p>
+                    ) : recentTransactions.length === 0 ? (
+                      <p className="text-sm text-gray-500">No transactions yet.</p>
+                    ) : (
+                      recentTransactions.map((tx) => {
+                        const kind = getTransactionKind(tx);
+                        const signedAmount =
+                          kind === "income" ? Math.abs(tx.amount) : kind === "transfer" ? tx.amount : -Math.abs(tx.amount);
+                        return (
+                          <div
+                            key={tx.id}
+                            className="flex items-center justify-between border border-gray-100 rounded-xl p-4"
+                          >
+                            <div>
+                              <p className="text-sm text-gray-500">{formatDateTime(tx.occurredAt || tx.createdAt)}</p>
+                              <p className="mt-1 text-base font-semibold text-gray-900">
+                                {tx.label || tx.categoryLabel || "Transaction"}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">{getAccountLabel(tx)}</p>
+                            </div>
+                            <p
+                              className={[
+                                "text-base font-semibold",
+                                signedAmount < 0 ? "text-red-500" : "text-emerald-600",
+                              ].join(" ")}
+                            >
+                              {signedAmount < 0 ? "-" : ""}
+                              {formatCurrency(Math.abs(signedAmount))}
+                            </p>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </>
             )}
 
@@ -627,67 +715,35 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900">Transactions</h2>
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <input
-                      type="text"
-                      value={transactionLabel}
-                      onChange={(event) => setTransactionLabel(event.target.value)}
-                      placeholder="Label"
-                      className="md:col-span-2 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200"
-                    />
-                    <input
-                      type="number"
-                      value={transactionAmount}
-                      onChange={(event) => setTransactionAmount(event.target.value)}
-                      placeholder="Amount"
-                      className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200"
-                    />
-                    <select
-                      value={transactionType}
-                      onChange={(event) => setTransactionType(event.target.value as "credit" | "debit")}
-                      className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200"
-                    >
-                      <option value="credit">Credit</option>
-                      <option value="debit">Debit</option>
-                    </select>
-                    <input
-                      type="datetime-local"
-                      value={transactionDate}
-                      onChange={(event) => setTransactionDate(event.target.value)}
-                      className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200"
-                    />
-                    <button
-                      onClick={handleAddTransaction}
-                      className="md:col-span-4 rounded-xl bg-gray-900 text-white text-sm font-semibold py-2 hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
-                      type="button"
-                      disabled={!transactionAmount}
-                    >
-                      Add Transaction
-                    </button>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900">Transactions</h2>
+                    <Link to="/transactions" className="text-sm text-gray-600 hover:text-gray-900">
+                      View all
+                    </Link>
                   </div>
                   <div className="mt-4 space-y-4">
                     {isLoadingTransactions ? (
                       <p className="text-sm text-gray-500">Loading transactions...</p>
                     ) : transactionsError ? (
                       <p className="text-sm text-red-600">{transactionsError}</p>
-                    ) : transactions.length === 0 ? (
+                    ) : recentTransactions.length === 0 ? (
                       <p className="text-sm text-gray-500">No transactions yet.</p>
                     ) : (
-                      transactions.map((tx) => {
-                        const signedAmount = tx.type === "debit" ? -Math.abs(tx.amount) : tx.amount;
+                      recentTransactions.map((tx) => {
+                        const kind = getTransactionKind(tx);
+                        const signedAmount =
+                          kind === "income" ? Math.abs(tx.amount) : kind === "transfer" ? tx.amount : -Math.abs(tx.amount);
                         return (
                           <div
                             key={tx.id}
                             className="flex items-center justify-between border border-gray-100 rounded-xl p-4"
                           >
                             <div>
-                              <p className="text-sm text-gray-500">
-                                {formatDateTime(tx.occurredAt || tx.createdAt)}
-                              </p>
+                              <p className="text-sm text-gray-500">{formatDateTime(tx.occurredAt || tx.createdAt)}</p>
                               <p className="mt-1 text-base font-semibold text-gray-900">
-                                {tx.label || "Transaction"}
+                                {tx.label || tx.categoryLabel || "Transaction"}
                               </p>
+                              <p className="text-xs text-gray-500 mt-1">{getAccountLabel(tx)}</p>
                             </div>
                             <p
                               className={[
@@ -718,6 +774,25 @@ export default function DashboardPage() {
           </AnimatedContent>
         </main>
       </div>
+      <button
+        onClick={() => setIsAddTransactionOpen(true)}
+        className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 w-16 h-16 rounded-2xl bg-gray-100 shadow-lg border border-gray-200 flex items-center justify-center hover:bg-white"
+        aria-label="Add transaction"
+        type="button"
+      >
+        <svg className="w-7 h-7 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+
+      <AddTransactionModal
+        isOpen={isAddTransactionOpen}
+        accounts={accounts}
+        categories={categories}
+        onClose={() => setIsAddTransactionOpen(false)}
+        onCreate={handleCreateTransaction}
+      />
+
       {isAddAccountOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-xl bg-gray-100 rounded-3xl shadow-xl overflow-hidden">

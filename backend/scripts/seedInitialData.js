@@ -3,7 +3,12 @@ import dotenv from 'dotenv';
 import Role from '../models/Role.js';
 import Permission from '../models/Permission.js';
 import AccountType from '../models/AccountType.js';
+import Account from '../models/Account.js';
+import Transaction from '../models/Transaction.js';
+import User from '../models/User.js';
+import Category from '../models/Category.js';
 import connectDB from '../config/database.js';
+import { hashPassword } from '../utils/password.js';
 
 dotenv.config();
 
@@ -169,6 +174,23 @@ const accountTypesToCreate = [
   },
 ];
 
+const categoriesToCreate = [
+  { label: 'Balance Adjustment', emoji: '🔄', type: 'expense' },
+  { label: 'Family Support', emoji: '👨‍👩‍👧‍👦', type: 'expense' },
+  { label: 'Food and Drinks', emoji: '🍔', type: 'expense' },
+  { label: 'Gifts', emoji: '🎁', type: 'expense' },
+  { label: 'Grocery', emoji: '🛒', type: 'expense' },
+  { label: 'Insurance Payment', emoji: '☂️', type: 'expense' },
+  { label: 'Medicine', emoji: '💊', type: 'expense' },
+  { label: 'Night Out', emoji: '🍻', type: 'expense' },
+  { label: 'Pet', emoji: '🐶', type: 'expense' },
+  { label: 'Rent', emoji: '🏠', type: 'expense' },
+  { label: 'Shopping', emoji: '🛍️', type: 'expense' },
+  { label: 'Subscriptions', emoji: '🔔', type: 'expense' },
+  { label: 'Transportation', emoji: '🚗', type: 'expense' },
+  { label: 'Utilities', emoji: '💡', type: 'expense' },
+];
+
 async function seedInitialData() {
   try {
     await connectDB();
@@ -247,6 +269,146 @@ async function seedInitialData() {
       await accountTypeDoc.save();
       createdAccountTypes.push(accountTypeDoc);
       console.log(`  ✓ Created account type: ${accountType.type}`);
+    }
+
+    // Step 4: Create categories
+    console.log('\n=== Creating Categories ===');
+    for (const categoryData of categoriesToCreate) {
+      const existing = await Category.findOne({ label: categoryData.label });
+      if (existing) {
+        console.log(`  ⏭️  Category "${categoryData.label}" already exists, skipping...`);
+        continue;
+      }
+
+      const category = new Category(categoryData);
+      await category.save();
+      console.log(`  ✓ Created category: ${categoryData.label}`);
+    }
+
+    // Step 5: Create demo user + demo accounts (optional helper data)
+    console.log('\n=== Creating Demo User & Accounts ===');
+    const demoEmail = 'demo@savvi.local';
+    const demoPassword = 'Demo123!';
+    let demoUser = await User.findOne({ email: demoEmail });
+    if (!demoUser) {
+      const hashedPassword = await hashPassword(demoPassword);
+      demoUser = new User({
+        email: demoEmail,
+        password: hashedPassword,
+        name: 'Demo User',
+        provider: 'local',
+        roles: ['user'],
+      });
+      await demoUser.save();
+      console.log(`  ✓ Created demo user (${demoEmail})`);
+    } else {
+      console.log(`  ⏭️  Demo user already exists (${demoEmail}), skipping user creation...`);
+    }
+
+    const existingDemoAccounts = await Account.countDocuments({ userId: demoUser._id });
+    if (existingDemoAccounts > 0) {
+      console.log('  ⏭️  Demo accounts already exist, skipping account seeding...');
+    } else {
+      const demoAccounts = [
+        {
+          accountName: 'Daily Wallet',
+          type: 'Wallet',
+          providerId: 'gcash',
+          providerLabel: 'GCash - Wallet',
+          addToNetWorth: true,
+          transactions: [
+            { amount: 5000, type: 'credit', label: 'Initial cash-in', occurredAt: new Date() },
+            { amount: 1200, type: 'debit', label: 'Groceries', occurredAt: new Date() },
+            { amount: 800, type: 'debit', label: 'Transport', occurredAt: new Date() },
+          ],
+        },
+        {
+          accountName: 'Emergency Fund',
+          type: 'Savings',
+          providerId: 'bpi',
+          providerLabel: 'BPI - Savings',
+          addToNetWorth: true,
+          transactions: [
+            { amount: 25000, type: 'credit', label: 'Initial deposit', occurredAt: new Date() },
+            { amount: 1500, type: 'credit', label: 'Interest', occurredAt: new Date() },
+          ],
+        },
+        {
+          accountName: 'Rewards Credit',
+          type: 'Credit',
+          providerId: 'citi',
+          providerLabel: 'Citi - Credit',
+          addToNetWorth: false,
+          transactions: [
+            { amount: 3200, type: 'debit', label: 'Online purchase', occurredAt: new Date() },
+            { amount: 1000, type: 'credit', label: 'Payment', occurredAt: new Date() },
+          ],
+        },
+        {
+          accountName: 'MP2 Fund',
+          type: 'Investments',
+          providerId: 'mp2',
+          providerLabel: 'MP2 - Investments',
+          addToNetWorth: true,
+          transactions: [
+            { amount: 10000, type: 'credit', label: 'Contribution', occurredAt: new Date() },
+          ],
+        },
+        {
+          accountName: 'Home Credit',
+          type: 'Loans',
+          providerId: 'homecredit',
+          providerLabel: 'Home Credit - Loan/Credit',
+          addToNetWorth: false,
+          transactions: [
+            { amount: 12000, type: 'credit', label: 'Loan disbursement', occurredAt: new Date() },
+            { amount: 2000, type: 'debit', label: 'Monthly payment', occurredAt: new Date() },
+          ],
+        },
+      ];
+
+      const createdAccounts = [];
+      const createdTransactions = [];
+
+      for (const demoAccount of demoAccounts) {
+        const balance = demoAccount.transactions.reduce((total, tx) => {
+          const signed = tx.type === 'debit' ? -Math.abs(tx.amount) : Math.abs(tx.amount);
+          return total + signed;
+        }, 0);
+
+        const accountDoc = new Account({
+          userId: demoUser._id,
+          accountName: demoAccount.accountName,
+          type: demoAccount.type,
+          providerId: demoAccount.providerId,
+          providerLabel: demoAccount.providerLabel,
+          addToNetWorth: demoAccount.addToNetWorth,
+          currentBalance: balance,
+        });
+
+        await accountDoc.save();
+        createdAccounts.push(accountDoc);
+
+        for (const tx of demoAccount.transactions) {
+          const txDoc = new Transaction({
+            userId: demoUser._id,
+            accountId: accountDoc._id,
+            amount: tx.amount,
+            type: tx.type,
+            label: tx.label,
+            occurredAt: tx.occurredAt,
+          });
+          await txDoc.save();
+          createdTransactions.push(txDoc);
+        }
+      }
+
+      await User.findByIdAndUpdate(demoUser._id, {
+        $addToSet: { accounts: { $each: createdAccounts.map((acc) => acc._id) } },
+      });
+
+      console.log(`  ✓ Created ${createdAccounts.length} demo accounts`);
+      console.log(`  ✓ Created ${createdTransactions.length} demo transactions`);
     }
 
     console.log('\n✅ Initial data seeding completed successfully!');
