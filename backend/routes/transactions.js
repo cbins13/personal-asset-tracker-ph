@@ -113,6 +113,9 @@ router.post('/', requireAuth, async (req, res) => {
       recordInBudget,
       notes,
     } = req.body;
+    const isCategoryIdValid = !!categoryId && mongoose.Types.ObjectId.isValid(categoryId);
+    const normalizedCategoryId = isCategoryIdValid ? categoryId : undefined;
+    const normalizedCategoryLabel = categoryLabel || (isCategoryIdValid ? undefined : categoryId);
 
     if (transactionKind && !allowedKinds.includes(transactionKind)) {
       await session.abortTransaction();
@@ -157,8 +160,8 @@ router.post('/', requireAuth, async (req, res) => {
         transactionKind: kind,
         label,
         occurredAt,
-        categoryId,
-        categoryLabel,
+        categoryId: normalizedCategoryId,
+        categoryLabel: normalizedCategoryLabel,
         recordInBudget,
         notes,
       });
@@ -201,8 +204,8 @@ router.post('/', requireAuth, async (req, res) => {
       transactionKind: kind,
       label,
       occurredAt,
-      categoryId,
-      categoryLabel,
+      categoryId: normalizedCategoryId,
+      categoryLabel: normalizedCategoryLabel,
       recordInBudget,
       notes,
     });
