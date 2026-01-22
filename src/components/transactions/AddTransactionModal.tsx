@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Account } from "../../utils/api";
+import { isMongoObjectId } from "../../utils/validators";
 
 export type TransactionKind = "expense" | "income" | "installment" | "transfer";
 
@@ -21,6 +22,7 @@ export type AddTransactionPayload = {
   categoryId?: string;
   categoryLabel?: string;
 };
+
 
 type Props = {
   isOpen: boolean;
@@ -131,7 +133,7 @@ export default function AddTransactionModal({
       accountId: activeTab !== "transfer" ? selectedAccountId : undefined,
       fromAccountId: activeTab === "transfer" ? fromAccountId : undefined,
       toAccountId: activeTab === "transfer" ? toAccountId : undefined,
-      categoryId: selectedCategory?.id,
+      categoryId: isMongoObjectId(selectedCategory?.id) ? selectedCategory?.id : undefined,
       categoryLabel: selectedCategory?.label,
     };
 

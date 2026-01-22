@@ -535,12 +535,6 @@ export default function DashboardPage() {
                   </button>
                 </div>
 
-                <div className="mt-8 flex justify-center">
-                  <button className="px-8 py-3 rounded-full bg-gray-900 text-white text-sm font-medium hover:bg-gray-800">
-                    Change order
-                  </button>
-                </div>
-
                 <div className="mt-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-gray-900">Transactions</h2>
@@ -585,6 +579,16 @@ export default function DashboardPage() {
                         );
                       })
                     )}
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      onClick={() => setIsAddTransactionOpen(true)}
+                      className="w-full border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                      type="button"
+                    >
+                      <span className="text-3xl">+</span>
+                      <span className="mt-2 text-sm font-medium">Add Transaction</span>
+                    </button>
                   </div>
                 </div>
               </>
@@ -774,17 +778,6 @@ export default function DashboardPage() {
           </AnimatedContent>
         </main>
       </div>
-      <button
-        onClick={() => setIsAddTransactionOpen(true)}
-        className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 w-16 h-16 rounded-2xl bg-gray-100 shadow-lg border border-gray-200 flex items-center justify-center hover:bg-white"
-        aria-label="Add transaction"
-        type="button"
-      >
-        <svg className="w-7 h-7 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-      </button>
-
       <AddTransactionModal
         isOpen={isAddTransactionOpen}
         accounts={accounts}
