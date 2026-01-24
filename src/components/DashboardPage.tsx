@@ -327,24 +327,24 @@ export default function DashboardPage() {
   // User should always be available here since route is protected
   if (auth.isLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar (only for authenticated users) */}
       <Sidebar />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center md:hidden">
@@ -354,13 +354,13 @@ export default function DashboardPage() {
                     alt="Savvi"
                     className="h-[100px] w-[100px]"
                   />
-                  <span className="text-lg font-semibold text-gray-900 tracking-tight">Savvi</span>
+                  <span className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">Savvi</span>
                 </Link>
               </div>
               <nav className="relative ml-auto flex items-center">
                 <button
                   onClick={toggleProfileMenu}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 border border-gray-300 overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-transform duration-150 hover:scale-105 hover:shadow-md"
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-transform duration-150 hover:scale-105 hover:shadow-md"
                   aria-label="Open profile menu"
                 >
                   {user?.picture ? (
@@ -370,34 +370,35 @@ export default function DashboardPage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-sm font-semibold text-gray-700">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                       {(user?.name || user?.email || "U")[0].toUpperCase()}
                     </span>
                   )}
                 </button>
                 {isProfileMenuOpen && (
-                  <div className="absolute right-0 top-12 w-48 bg-white border border-gray-200 rounded-md shadow-lg py-1 z-20 animate-fade-in-down">
-                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">
+                  <div className="absolute right-0 top-12 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 z-20 animate-fade-in-down">
+                    <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                       Signed in as
-                      <div className="font-medium text-gray-800 truncate">
+                      <div className="font-medium text-gray-800 dark:text-gray-200 truncate">
                         {user?.email}
                       </div>
                     </div>
                     <Link
                       to="/profile"
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       onClick={() => setIsProfileMenuOpen(false)}
                     >
                       Profile
                     </Link>
-                    <button
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      type="button"
+                    <Link
+                      to="/settings"
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={() => setIsProfileMenuOpen(false)}
                     >
                       Settings
-                    </button>
+                    </Link>
                     <button
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                       type="button"
                       onClick={handleLogout}
                     >
@@ -418,15 +419,15 @@ export default function DashboardPage() {
                 {selectedAccount ? (
                   <button
                     onClick={() => setSelectedAccountId(null)}
-                    className="p-2 rounded-full hover:bg-gray-100"
+                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                     aria-label="Back to accounts"
                   >
-                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
                 ) : null}
-                <h1 className="text-2xl font-semibold text-gray-900">
+                <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                   {selectedAccount
                     ? `${selectedAccount.providerLabel || selectedAccount.accountName} - ${selectedAccount.type}`
                     : "Accounts"}
@@ -436,16 +437,16 @@ export default function DashboardPage() {
 
             {!selectedAccount && (
               <>
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 flex items-center justify-between">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6 flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Total Net Worth</p>
-                    <p className="mt-2 text-3xl font-bold text-gray-900">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Total Net Worth</p>
+                    <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">
                       {isNetWorthHidden ? "••••••" : formatCurrency(netWorthTotal)}
                     </p>
                   </div>
                   <button
                     onClick={() => setIsNetWorthHidden((prev) => !prev)}
-                    className="p-3 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    className="p-3 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                     aria-label="Toggle net worth visibility"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -473,8 +474,8 @@ export default function DashboardPage() {
                       className={[
                         "px-4 py-2 rounded-full text-sm font-medium border",
                         activeFilter === filter
-                          ? "bg-gray-900 text-white border-gray-900"
-                          : "bg-white text-gray-700 border-gray-200 hover:border-gray-400",
+                          ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100"
+                          : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500",
                       ].join(" ")}
                     >
                       {filter}
@@ -484,11 +485,11 @@ export default function DashboardPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {isLoadingAccounts ? (
-                    <div className="col-span-full text-sm text-gray-500">Loading accounts...</div>
+                    <div className="col-span-full text-sm text-gray-500 dark:text-gray-400">Loading accounts...</div>
                   ) : accountsError ? (
-                    <div className="col-span-full text-sm text-red-600">{accountsError}</div>
+                    <div className="col-span-full text-sm text-red-600 dark:text-red-400">{accountsError}</div>
                   ) : filteredAccounts.length === 0 ? (
-                    <div className="col-span-full text-sm text-gray-500">No accounts yet.</div>
+                    <div className="col-span-full text-sm text-gray-500 dark:text-gray-400">No accounts yet.</div>
                   ) : (
                     filteredAccounts.map((account) => {
                       const providerMeta = getProviderMeta(account);
@@ -502,7 +503,7 @@ export default function DashboardPage() {
                         <button
                           key={account.id}
                           onClick={() => setSelectedAccountId(account.id)}
-                          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-left hover:shadow-md transition-shadow"
+                          className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 text-left hover:shadow-md transition-shadow"
                         >
                           <div className="flex items-center gap-3">
                             <div
@@ -511,15 +512,15 @@ export default function DashboardPage() {
                               {iconText.toUpperCase()}
                             </div>
                             <div>
-                              <p className="text-base font-semibold text-gray-900">
+                              <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
                                 {account.accountName}
                               </p>
-                              <p className="text-sm text-gray-500">
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
                                 {account.providerLabel || account.type}
                               </p>
                             </div>
                           </div>
-                          <p className="mt-4 text-2xl font-bold text-gray-900">
+                          <p className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">
                             {formatCurrency(account.currentBalance || 0)}
                           </p>
                         </button>
@@ -528,27 +529,27 @@ export default function DashboardPage() {
                   )}
                   <button
                     onClick={openAddAccount}
-                    className="border-2 border-dashed border-gray-300 rounded-2xl p-8 flex flex-col items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                    className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                   >
                     <span className="text-3xl">+</span>
                     <span className="mt-2 text-sm font-medium">Add Account</span>
                   </button>
                 </div>
 
-                <div className="mt-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">Transactions</h2>
-                    <Link to="/transactions" className="text-sm text-gray-600 hover:text-gray-900">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Transactions</h2>
+                    <Link to="/transactions" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
                       View all
                     </Link>
                   </div>
                   <div className="mt-4 space-y-4">
                     {isLoadingTransactions ? (
-                      <p className="text-sm text-gray-500">Loading transactions...</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Loading transactions...</p>
                     ) : transactionsError ? (
-                      <p className="text-sm text-red-600">{transactionsError}</p>
+                      <p className="text-sm text-red-600 dark:text-red-400">{transactionsError}</p>
                     ) : recentTransactions.length === 0 ? (
-                      <p className="text-sm text-gray-500">No transactions yet.</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No transactions yet.</p>
                     ) : (
                       recentTransactions.map((tx) => {
                         const kind = getTransactionKind(tx);
@@ -557,19 +558,19 @@ export default function DashboardPage() {
                         return (
                           <div
                             key={tx.id}
-                            className="flex items-center justify-between border border-gray-100 rounded-xl p-4"
+                            className="flex items-center justify-between border border-gray-100 dark:border-gray-600 rounded-xl p-4"
                           >
                             <div>
-                              <p className="text-sm text-gray-500">{formatDateTime(tx.occurredAt || tx.createdAt)}</p>
-                              <p className="mt-1 text-base font-semibold text-gray-900">
+                              <p className="text-sm text-gray-500 dark:text-gray-400">{formatDateTime(tx.occurredAt || tx.createdAt)}</p>
+                              <p className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
                                 {tx.label || tx.categoryLabel || "Transaction"}
                               </p>
-                              <p className="text-xs text-gray-500 mt-1">{getAccountLabel(tx)}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getAccountLabel(tx)}</p>
                             </div>
                             <p
                               className={[
                                 "text-base font-semibold",
-                                signedAmount < 0 ? "text-red-500" : "text-emerald-600",
+                                signedAmount < 0 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400",
                               ].join(" ")}
                             >
                               {signedAmount < 0 ? "-" : ""}
@@ -583,7 +584,7 @@ export default function DashboardPage() {
                   <div className="mt-4">
                     <button
                       onClick={() => setIsAddTransactionOpen(true)}
-                      className="w-full border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                      className="w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-6 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                       type="button"
                     >
                       <span className="text-3xl">+</span>
@@ -596,7 +597,7 @@ export default function DashboardPage() {
 
             {selectedAccount && (
               <div className="space-y-6">
-                <div className="bg-gray-100 rounded-2xl p-6">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
                       {(() => {
@@ -620,14 +621,14 @@ export default function DashboardPage() {
                           <input
                             value={editAccountName}
                             onChange={(event) => setEditAccountName(event.target.value)}
-                            className="text-lg font-semibold text-gray-900 bg-transparent border-b border-gray-300 focus:outline-none focus:border-gray-600"
+                            className="text-lg font-semibold text-gray-900 dark:text-gray-100 bg-transparent border-b border-gray-300 dark:border-gray-500 focus:outline-none focus:border-gray-600 dark:focus:border-gray-400"
                           />
                         ) : (
-                          <p className="text-lg font-semibold text-gray-900">
+                          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                             {selectedAccount.accountName}
                           </p>
                         )}
-                        <p className="mt-1 text-3xl font-bold text-gray-900">
+                        <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-gray-100">
                           {formatCurrency(selectedAccount.currentBalance || 0)}
                         </p>
                       </div>
@@ -636,7 +637,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={handleUpdateAccountName}
-                          className="px-4 py-2 rounded-full border border-gray-300 text-sm font-medium text-gray-700 hover:bg-white"
+                          className="px-4 py-2 rounded-full border border-gray-300 dark:border-gray-500 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700"
                         >
                           Save
                         </button>
@@ -645,7 +646,7 @@ export default function DashboardPage() {
                             setIsEditingAccountName(false);
                             setEditAccountName(selectedAccount.accountName);
                           }}
-                          className="px-4 py-2 rounded-full border border-transparent text-sm font-medium text-gray-500 hover:text-gray-700"
+                          className="px-4 py-2 rounded-full border border-transparent text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                         >
                           Cancel
                         </button>
@@ -653,29 +654,29 @@ export default function DashboardPage() {
                     ) : (
                       <button
                         onClick={() => setIsEditingAccountName(true)}
-                        className="px-4 py-2 rounded-full border border-gray-300 text-sm font-medium text-gray-700 hover:bg-white"
+                        className="px-4 py-2 rounded-full border border-gray-300 dark:border-gray-500 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700"
                       >
                         Edit
                       </button>
                     )}
                   </div>
 
-                  <div className="mt-6 grid grid-cols-2 gap-4 text-sm text-gray-600">
+                  <div className="mt-6 grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400">
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Goal amount</p>
-                      <p className="mt-2 text-lg font-semibold text-gray-900">
+                      <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Goal amount</p>
+                      <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
                         {formatCurrency(0)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Interest rate</p>
-                      <p className="mt-2 text-lg font-semibold text-gray-900">
+                      <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Interest rate</p>
+                      <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
                         {"--"}
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-6 bg-gray-900 rounded-2xl px-6 py-4 text-white">
+                  <div className="mt-6 bg-gray-900 dark:bg-black/30 rounded-2xl px-6 py-4 text-white">
                     <p className="text-sm font-medium">Total Interest Earned</p>
                     <div className="mt-3 grid grid-cols-2 gap-6 text-sm">
                       <div>
@@ -690,15 +691,15 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mt-6 flex items-center justify-between">
-                    <p className="text-sm text-gray-600">Add to Total Net Worth?</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Add to Total Net Worth?</p>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleToggleNetWorth(true)}
                         className={[
                           "px-4 py-1.5 rounded-full text-sm font-semibold",
                           selectedAccount.addToNetWorth
-                            ? "bg-lime-200 text-lime-900"
-                            : "bg-white text-gray-600 border border-gray-300",
+                            ? "bg-lime-200 dark:bg-lime-600/40 text-lime-900 dark:text-lime-200"
+                            : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600",
                         ].join(" ")}
                       >
                         Yes
@@ -708,8 +709,8 @@ export default function DashboardPage() {
                         className={[
                           "px-4 py-1.5 rounded-full text-sm font-semibold",
                           !selectedAccount.addToNetWorth
-                            ? "bg-lime-200 text-lime-900"
-                            : "bg-white text-gray-600 border border-gray-300",
+                            ? "bg-lime-200 dark:bg-lime-600/40 text-lime-900 dark:text-lime-200"
+                            : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600",
                         ].join(" ")}
                       >
                         No
@@ -718,20 +719,20 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">Transactions</h2>
-                    <Link to="/transactions" className="text-sm text-gray-600 hover:text-gray-900">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Transactions</h2>
+                    <Link to="/transactions" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
                       View all
                     </Link>
                   </div>
                   <div className="mt-4 space-y-4">
                     {isLoadingTransactions ? (
-                      <p className="text-sm text-gray-500">Loading transactions...</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Loading transactions...</p>
                     ) : transactionsError ? (
-                      <p className="text-sm text-red-600">{transactionsError}</p>
+                      <p className="text-sm text-red-600 dark:text-red-400">{transactionsError}</p>
                     ) : recentTransactions.length === 0 ? (
-                      <p className="text-sm text-gray-500">No transactions yet.</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No transactions yet.</p>
                     ) : (
                       recentTransactions.map((tx) => {
                         const kind = getTransactionKind(tx);
@@ -740,19 +741,19 @@ export default function DashboardPage() {
                         return (
                           <div
                             key={tx.id}
-                            className="flex items-center justify-between border border-gray-100 rounded-xl p-4"
+                            className="flex items-center justify-between border border-gray-100 dark:border-gray-600 rounded-xl p-4"
                           >
                             <div>
-                              <p className="text-sm text-gray-500">{formatDateTime(tx.occurredAt || tx.createdAt)}</p>
-                              <p className="mt-1 text-base font-semibold text-gray-900">
+                              <p className="text-sm text-gray-500 dark:text-gray-400">{formatDateTime(tx.occurredAt || tx.createdAt)}</p>
+                              <p className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
                                 {tx.label || tx.categoryLabel || "Transaction"}
                               </p>
-                              <p className="text-xs text-gray-500 mt-1">{getAccountLabel(tx)}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getAccountLabel(tx)}</p>
                             </div>
                             <p
                               className={[
                                 "text-base font-semibold",
-                                signedAmount < 0 ? "text-red-500" : "text-emerald-600",
+                                signedAmount < 0 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400",
                               ].join(" ")}
                             >
                               {signedAmount < 0 ? "-" : ""}
@@ -768,7 +769,7 @@ export default function DashboardPage() {
                 <div className="flex justify-center">
                   <button
                     onClick={handleDeleteAccount}
-                    className="px-10 py-3 rounded-full bg-gray-900 text-white text-sm font-medium hover:bg-gray-800"
+                    className="px-10 py-3 rounded-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-200"
                   >
                     Delete Account
                   </button>
@@ -787,29 +788,29 @@ export default function DashboardPage() {
       />
 
       {isAddAccountOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-xl bg-gray-100 rounded-3xl shadow-xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 bg-gray-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 px-4">
+          <div className="w-full max-w-xl bg-gray-100 dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between px-6 py-5 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3">
                 {addAccountStep === "form" ? (
                   <button
                     onClick={() => setAddAccountStep("selectProvider")}
-                    className="p-2 rounded-full hover:bg-gray-200"
+                    className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
                     aria-label="Back to account list"
                   >
-                    <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
                 ) : null}
-                <h2 className="text-2xl font-semibold text-gray-900">Add Account</h2>
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Add Account</h2>
               </div>
               <button
                 onClick={closeAddAccount}
-                className="p-2 rounded-full hover:bg-gray-200"
+                className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
                 aria-label="Close add account"
               >
-                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -817,7 +818,7 @@ export default function DashboardPage() {
 
             {addAccountStep === "selectProvider" && (
               <div className="px-6 pb-6">
-                <div className="bg-gray-200 rounded-2xl p-2 flex gap-2 mb-5 overflow-x-auto">
+                <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-2 flex gap-2 mb-5 overflow-x-auto">
                   {addAccountTabs.map((tab) => (
                     <button
                       key={tab}
@@ -825,28 +826,28 @@ export default function DashboardPage() {
                       className={[
                         "px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap",
                         selectedAddType === tab
-                          ? "bg-white text-gray-900 shadow-sm"
-                          : "text-gray-600 hover:text-gray-900",
+                          ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
+                          : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200",
                       ].join(" ")}
                     >
                       {tab}
                     </button>
                   ))}
                 </div>
-                <div className="bg-gray-200 rounded-2xl p-4 max-h-[420px] overflow-y-auto">
+                <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 max-h-[420px] overflow-y-auto">
                   <div className="space-y-3">
                     {visibleProviders.map((provider) => (
                       <button
                         key={provider.id}
                         onClick={() => handleSelectProvider(provider)}
-                        className="w-full flex items-center gap-3 bg-gray-100 rounded-2xl px-4 py-3 text-left hover:bg-white"
+                        className="w-full flex items-center gap-3 bg-gray-100 dark:bg-gray-600 rounded-2xl px-4 py-3 text-left hover:bg-white dark:hover:bg-gray-500"
                       >
                         <div
                           className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold ${provider.accent}`}
                         >
                           {provider.label.split(" ")[0][0]}
                         </div>
-                        <span className="text-base text-gray-800">{provider.label}</span>
+                        <span className="text-base text-gray-800 dark:text-gray-200">{provider.label}</span>
                       </button>
                     ))}
                   </div>
@@ -856,7 +857,7 @@ export default function DashboardPage() {
 
             {addAccountStep === "form" && (
               <div className="px-6 pb-8">
-                <div className="bg-gray-200 rounded-2xl px-4 py-4 flex items-center gap-3 mb-6">
+                <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl px-4 py-4 flex items-center gap-3 mb-6">
                   <div
                     className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold ${
                       selectedProvider?.accent || "bg-gray-400"
@@ -864,14 +865,14 @@ export default function DashboardPage() {
                   >
                     {selectedProvider?.label?.split(" ")[0][0] || "A"}
                   </div>
-                  <span className="text-base text-gray-800">
+                  <span className="text-base text-gray-800 dark:text-gray-200">
                     {selectedProvider?.label || "Selected Account"}
                   </span>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <div className="bg-white dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 p-4">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                       {selectedAddType} name
                     </label>
                     <input
@@ -879,34 +880,34 @@ export default function DashboardPage() {
                       value={accountName}
                       onChange={(event) => setAccountName(event.target.value)}
                       placeholder={selectedAddType === "Wallet" ? "Daily Expenses" : "Account name"}
-                      className="w-full text-base text-gray-800 placeholder:text-gray-400 focus:outline-none"
+                      className="w-full text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                     />
                   </div>
-                  <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <div className="bg-white dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 p-4">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                       Current account balance
                     </label>
-                    <div className="flex items-center gap-2 text-base text-gray-800">
+                    <div className="flex items-center gap-2 text-base text-gray-800 dark:text-gray-100">
                       <span>₱</span>
                       <input
                         type="number"
                         value={accountBalance}
                         onChange={(event) => setAccountBalance(event.target.value)}
                         placeholder="0.00"
-                        className="w-full focus:outline-none"
+                        className="w-full focus:outline-none bg-transparent"
                       />
                     </div>
                   </div>
-                  <div className="bg-white rounded-2xl border border-gray-200 px-4 py-3 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-700">Add to Total Net Worth</span>
+                  <div className="bg-white dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Add to Total Net Worth</span>
                     <button
                       type="button"
                       onClick={() => setAccountAddToNetWorth((prev) => !prev)}
                       className={[
                         "px-4 py-1.5 rounded-full text-sm font-semibold",
                         accountAddToNetWorth
-                          ? "bg-lime-200 text-lime-900"
-                          : "bg-white text-gray-600 border border-gray-300",
+                          ? "bg-lime-200 dark:bg-lime-600/40 text-lime-900 dark:text-lime-200"
+                          : "bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-500",
                       ].join(" ")}
                     >
                       {accountAddToNetWorth ? "Yes" : "No"}
@@ -914,7 +915,7 @@ export default function DashboardPage() {
                   </div>
                   <button
                     onClick={handleAddAccount}
-                    className="w-full bg-lime-300 text-gray-900 text-base font-semibold rounded-2xl py-3 hover:bg-lime-400 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full bg-lime-300 dark:bg-lime-600 text-gray-900 dark:text-gray-100 text-base font-semibold rounded-2xl py-3 hover:bg-lime-400 dark:hover:bg-lime-500 disabled:opacity-60 disabled:cursor-not-allowed"
                     type="button"
                     disabled={!accountName.trim()}
                   >

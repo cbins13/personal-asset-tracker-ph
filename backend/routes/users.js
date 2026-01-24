@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Permission from '../models/Permission.js';
 import Role from '../models/Role.js';
+import Account from '../models/Account.js';
+import Transaction from '../models/Transaction.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -203,6 +205,49 @@ router.put('/profile', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ success: false, error: 'Failed to update profile', details: error.message });
+  }
+});
+
+// Delete current user account (all users: local and Google). Cascade: Transactions → Accounts → User.
+router.delete('/me', requireAuth, async (req, res) => {
+  const session = req.session;
+  const userId = req.session.userId;
+
+  try {
+    const mongoSession = await mongoose.startSession();
+    mongoSession.startTransaction();
+
+    try {
+      await Transaction.deleteMany({ userId }, { session: mongoSession });
+      await Account.deleteMany({ userId }, { session: mongoSession });
+      await User.findByIdAndDelete(userId, { session: mongoSession });
+      await mongoSession.commitTransaction();
+    } catch (txError) {
+      await mongoSession.abortTransaction();
+      throw txError;
+    } finally {
+      mongoSession.endSession();
+    }
+
+    await new Promise((resolve, reject) => {
+      session.destroy((err) => {
+        if (err) {
+          console.error('Session destroy error on delete account:', err);
+          reject(err);
+          return;
+        }
+        res.clearCookie('sessionId');
+        res.json({ success: true });
+        resolve();
+      });
+    });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete account',
+      details: error.message,
+    });
   }
 });
 

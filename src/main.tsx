@@ -11,6 +11,12 @@ if (!CLIENT_ID) {
   throw new Error("VITE_GOOGLE_CLIENT_ID is not set");
 }
 
+(function initTheme() {
+  const t = localStorage.getItem("theme");
+  if (t === "dark") document.documentElement.classList.add("dark");
+  else document.documentElement.classList.remove("dark");
+})();
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <GoogleOAuthProvider clientId={CLIENT_ID}>

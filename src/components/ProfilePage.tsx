@@ -33,24 +33,24 @@ export default function ProfilePage() {
   // User should always be available here since route is protected
   if (auth.isLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar (only for authenticated users) */}
       <Sidebar />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center md:hidden">
@@ -60,13 +60,13 @@ export default function ProfilePage() {
                     alt="Savvi"
                     className="h-[100px] w-[100px]"
                   />
-                  <span className="text-lg font-semibold text-gray-900 tracking-tight">Savvi</span>
+                  <span className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">Savvi</span>
                 </Link>
               </div>
               <nav className="relative ml-auto flex items-center">
                 <button
                   onClick={toggleProfileMenu}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 border border-gray-300 overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-transform duration-150 hover:scale-105 hover:shadow-md"
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-transform duration-150 hover:scale-105 hover:shadow-md"
                   aria-label="Open profile menu"
                 >
                   {user?.picture ? (
@@ -76,34 +76,35 @@ export default function ProfilePage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-sm font-semibold text-gray-700">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                       {(user?.name || user?.email || "U")[0].toUpperCase()}
                     </span>
                   )}
                 </button>
                 {isProfileMenuOpen && (
-                  <div className="absolute right-0 top-12 w-48 bg-white border border-gray-200 rounded-md shadow-lg py-1 z-20 animate-fade-in-down">
-                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">
+                  <div className="absolute right-0 top-12 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 z-20 animate-fade-in-down">
+                    <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                       Signed in as
-                      <div className="font-medium text-gray-800 truncate">
+                      <div className="font-medium text-gray-800 dark:text-gray-200 truncate">
                         {user?.email}
                       </div>
                     </div>
                     <Link
                       to="/profile"
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       onClick={() => setIsProfileMenuOpen(false)}
                     >
                       Profile
                     </Link>
-                    <button
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      type="button"
+                    <Link
+                      to="/settings"
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={() => setIsProfileMenuOpen(false)}
                     >
                       Settings
-                    </button>
+                    </Link>
                     <button
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                       type="button"
                       onClick={handleLogout}
                     >

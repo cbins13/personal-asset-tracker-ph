@@ -134,22 +134,22 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`hidden md:flex md:flex-col bg-white border-r border-gray-200 transition-all duration-300 ease-in-out ${
+      className={`hidden md:flex md:flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out ${
         isCollapsed ? "w-16" : "w-64"
       }`}
     >
       {/* Header with logo and toggle button */}
-      <div className="flex h-16 items-center border-b border-gray-200">
+      <div className="flex h-16 items-center border-b border-gray-200 dark:border-gray-700">
         <div className={`flex items-center ${isCollapsed ? "justify-center w-full px-2" : "px-6 w-full"}`}>
           {!isCollapsed && (
             <span className="flex items-center gap-2 flex-1">
               <img src={logoSmall} alt="Savvi" className="h-[50px] w-[50px]" />
-              <span className="text-lg font-semibold tracking-tight text-gray-900">Savvi</span>
+              <span className="text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">Savvi</span>
             </span>
           )}
           <button
             onClick={toggleSidebar}
-            className={`ml-auto ${isCollapsed ? "mx-auto" : ""} p-2 rounded-md hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors`}
+            className={`ml-auto ${isCollapsed ? "mx-auto" : ""} p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors`}
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {isCollapsed ? (
@@ -184,8 +184,8 @@ export default function Sidebar() {
                     "group w-full flex items-center justify-between rounded-md transition-all duration-200",
                     "px-3 py-2",
                     isActive || dropdownOpen
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+                      ? "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100",
                   ].join(" ")}
                 >
                   <div className="flex items-center">
@@ -210,7 +210,7 @@ export default function Sidebar() {
                     dropdownOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
                   }`}
                 >
-                  <div className="ml-4 space-y-1 border-l-2 border-gray-200 pl-2 pt-1">
+                  <div className="ml-4 space-y-1 border-l-2 border-gray-200 dark:border-gray-600 pl-2 pt-1">
                     {item.submenu?.map((subItem, index) => {
                       const isSubActive = pathname === subItem.to;
                       return (
@@ -220,8 +220,8 @@ export default function Sidebar() {
                           className={[
                             "flex items-center rounded-md transition-all duration-200 px-3 py-2 text-sm",
                             isSubActive
-                              ? "bg-primary-50 text-primary-700 font-medium"
-                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                              ? "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 font-medium"
+                              : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100",
                             dropdownOpen ? "animate-fade-in-scale" : "",
                           ].join(" ")}
                           style={{
@@ -245,8 +245,8 @@ export default function Sidebar() {
                   className={[
                     "w-full flex items-center justify-center rounded-md transition-all duration-200 px-2 py-2",
                     isActive || dropdownOpen
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+                      ? "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100",
                   ].join(" ")}
                   title={item.label}
                 >
@@ -257,7 +257,7 @@ export default function Sidebar() {
                   )}
                 </button>
                 <div
-                  className={`absolute left-full ml-2 top-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[160px] z-50 transition-all duration-300 ease-in-out ${
+                  className={`absolute left-full ml-2 top-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[160px] z-50 transition-all duration-300 ease-in-out ${
                     dropdownOpen
                       ? "opacity-100 translate-x-0 animate-fade-in-scale"
                       : "opacity-0 -translate-x-2 pointer-events-none"
@@ -272,8 +272,8 @@ export default function Sidebar() {
                         className={[
                           "block px-4 py-2 text-sm transition-colors",
                           isSubActive
-                            ? "bg-primary-50 text-primary-700 font-medium"
-                            : "text-gray-700 hover:bg-gray-50",
+                            ? "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 font-medium"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700",
                         ].join(" ")}
                         style={{
                           animationDelay: dropdownOpen ? `${index * 0.05}s` : "0s",
@@ -296,8 +296,8 @@ export default function Sidebar() {
                   "group flex items-center rounded-md transition-all duration-200",
                   isCollapsed ? "justify-center px-2 py-2" : "px-3 py-2",
                   isActive
-                    ? "bg-primary-50 text-primary-700"
-                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+                    ? "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100",
                 ].join(" ")}
                 title={isCollapsed ? item.label : undefined}
               >
@@ -319,8 +319,8 @@ export default function Sidebar() {
 
       {/* Footer with user info */}
       {!isCollapsed && (
-        <div className="px-4 py-3 border-t border-gray-200 text-xs text-gray-500">
-          <div className="font-medium text-gray-700 truncate">
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+          <div className="font-medium text-gray-700 dark:text-gray-300 truncate">
             {auth.user?.name || auth.user?.email}
           </div>
           {auth.user?.roles && auth.user.roles.length > 0 && (
@@ -328,7 +328,7 @@ export default function Sidebar() {
               {auth.user.roles.map((role) => (
                 <span
                   key={role}
-                  className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-secondary-50 text-secondary-700 border border-secondary-100 text-[10px] uppercase tracking-wide"
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-secondary-50 dark:bg-secondary-900/40 text-secondary-700 dark:text-secondary-300 border border-secondary-100 dark:border-secondary-700 text-[10px] uppercase tracking-wide"
                 >
                   {role}
                 </span>
@@ -338,17 +338,17 @@ export default function Sidebar() {
         </div>
       )}
       {isCollapsed && (
-        <div className="px-2 py-3 border-t border-gray-200 flex justify-center">
+        <div className="px-2 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-center">
           {auth.user?.picture ? (
             <img
               src={auth.user.picture}
               alt={auth.user.name || auth.user.email}
-              className="w-8 h-8 rounded-full border-2 border-gray-200"
+              className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-600"
               title={auth.user.name || auth.user.email}
             />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-              <span className="text-xs font-medium text-primary-700">
+            <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
+              <span className="text-xs font-medium text-primary-700 dark:text-primary-300">
                 {(auth.user?.name || auth.user?.email || "U")[0].toUpperCase()}
               </span>
             </div>

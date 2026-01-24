@@ -3,8 +3,19 @@ import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import { hashPassword, comparePassword, validatePassword } from '../utils/password.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+
+const MAX_PASSWORD_LENGTH = 128;
+const MALICIOUS_PATTERNS = [/<|>/, /\bscript\b/i, /javascript:/i, /\0/];
+
+function isMaliciousPassword(str) {
+  if (typeof str !== 'string') return true;
+  const s = str.trim();
+  if (s.length > MAX_PASSWORD_LENGTH) return true;
+  return MALICIOUS_PATTERNS.some((re) => re.test(s));
+}
 // OAuth2Client is created dynamically with the Client ID from the request
 
 // Generate JWT token
@@ -283,6 +294,49 @@ router.post('/logout', (req, res) => {
     res.clearCookie('connect.sid');
     res.json({ success: true, message: 'Logged out successfully' });
   });
+});
+
+// Change password (local users only)
+router.post('/change-password', requireAuth, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (typeof oldPassword !== 'string' || typeof newPassword !== 'string') {
+      return res.status(400).json({ success: false, error: 'Old password and new password are required' });
+    }
+
+    const trimmedOld = oldPassword.trim();
+    const trimmedNew = newPassword.trim();
+    if (!trimmedOld || !trimmedNew) {
+      return res.status(400).json({ success: false, error: 'Old password and new password are required' });
+    }
+
+    if (isMaliciousPassword(oldPassword) || isMaliciousPassword(newPassword)) {
+      return res.status(400).json({ success: false, error: 'Invalid characters in password' });
+    }
+
+    const user = await User.findById(req.session.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    if (user.provider !== 'local') {
+      return res.status(400).json({ success: false, error: 'Change password is only available for email/password accounts' });
+    }
+
+    const valid = await comparePassword(trimmedOld, user.password);
+    if (!valid) {
+      return res.status(401).json({ success: false, error: 'Current password is incorrect' });
+    }
+
+    user.password = await hashPassword(trimmedNew);
+    await user.save();
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to change password', details: error.message });
+  }
 });
 
 // Get current user (from session)

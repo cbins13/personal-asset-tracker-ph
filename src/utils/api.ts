@@ -103,6 +103,13 @@ export const authApi = {
   getCurrentUser: async (): Promise<ApiResponse<AuthResponse>> => {
     return apiRequest<AuthResponse>('/auth/me');
   },
+
+  changePassword: async (oldPassword: string, newPassword: string): Promise<ApiResponse<{ success: boolean }>> => {
+    return apiRequest<{ success: boolean }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ oldPassword, newPassword }),
+    });
+  },
 };
 
 // Users API functions (admin)
@@ -122,6 +129,12 @@ export const usersApi = {
     return apiRequest<{ user: UserSummary }>(`/users/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
+    });
+  },
+
+  deleteAccount: async (): Promise<ApiResponse<{ success: boolean }>> => {
+    return apiRequest<{ success: boolean }>('/users/me', {
+      method: 'DELETE',
     });
   },
 };
