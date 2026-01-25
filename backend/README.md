@@ -70,6 +70,7 @@ This will create the default system roles if they don't already exist.
 - `POST /api/auth/register` - Local user registration
 - `POST /api/auth/login` - Local user login
 - `POST /api/auth/logout` - Logout user
+- `POST /api/auth/change-password` - Change password (local users only, requires auth)
 - `GET /api/auth/me` - Get current user from session
 
 ### Users (`/api/users`)
