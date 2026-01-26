@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Account, Transaction } from "../../utils/api";
+import { ErrorType } from "../../utils/errorMessages";
 import { isMongoObjectId } from "../../utils/validators";
 
 export type TransactionKind = "expense" | "income" | "installment" | "transfer";
@@ -83,6 +84,8 @@ export default function AddTransactionModal({
   const [toAccountId, setToAccountId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<ErrorType | undefined>();
+  const [canRetry, setCanRetry] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -115,6 +118,8 @@ export default function AddTransactionModal({
       setFromAccountId(transaction.fromAccountId || "");
       setToAccountId(transaction.toAccountId || "");
       setFormError(null);
+      setErrorType(undefined);
+      setCanRetry(false);
       setActiveTab(kind);
       setIsSubmitting(false);
       return;
@@ -197,7 +202,20 @@ export default function AddTransactionModal({
       }
     } catch (error) {
       console.error(`${isEditMode ? "Update" : "Create"} transaction error:`, error);
-      setFormError(`Failed to ${isEditMode ? "update" : "create"} transaction.`);
+      const errorMessage = error instanceof Error ? error.message : `Failed to ${isEditMode ? "update" : "create"} transaction.`;
+      setFormError(errorMessage);
+      
+      // Determine error type from error message
+      if (errorMessage.includes('Network') || errorMessage.includes('fetch')) {
+        setErrorType(ErrorType.NETWORK);
+        setCanRetry(true);
+      } else if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
+        setErrorType(ErrorType.VALIDATION);
+        setCanRetry(false);
+      } else {
+        setErrorType(ErrorType.UNKNOWN);
+        setCanRetry(true);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -393,7 +411,41 @@ export default function AddTransactionModal({
               />
             </label>
 
-            {formError ? <p className="text-sm text-red-600">{formError}</p> : null}
+            {formError ? (
+              <div className={`p-3 rounded-lg ${
+                errorType === ErrorType.NETWORK || errorType === ErrorType.SERVER
+                  ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
+                  : errorType === ErrorType.VALIDATION
+                  ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800'
+                  : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+              }`}>
+                <div className="flex items-start justify-between">
+                  <p className={`text-sm font-medium ${
+                    errorType === ErrorType.NETWORK || errorType === ErrorType.SERVER
+                      ? 'text-yellow-800 dark:text-yellow-200'
+                      : errorType === ErrorType.VALIDATION
+                      ? 'text-orange-800 dark:text-orange-200'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {formError}
+                  </p>
+                  {canRetry && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const form = document.querySelector('form');
+                        if (form) {
+                          form.requestSubmit();
+                        }
+                      }}
+                      className="ml-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 underline"
+                    >
+                      Retry
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             <button
               onClick={handleSubmit}

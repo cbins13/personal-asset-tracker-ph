@@ -1,15 +1,74 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../auth";
 import logoSmall from "../assets/savvi_logo.png";
 import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 import Sidebar from "./Sidebar";
+import ErrorBoundary from "./ErrorBoundary";
+
+const LOADING_TIMEOUT_MS = 10000; // 10 seconds
+const IS_DEV = import.meta.env.DEV;
+
+interface ErrorDisplayProps {
+  message: string;
+  onRetry: () => void;
+}
+
+function ErrorDisplay({ message, onRetry }: ErrorDisplayProps) {
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
+        <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 dark:bg-red-900/20 rounded-full mb-4">
+          <svg
+            className="w-6 h-6 text-red-600 dark:text-red-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+        </div>
+        
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">
+          Unable to Load Profile
+        </h2>
+        
+        <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
+          {message}
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={onRetry}
+            className="flex-1 bg-primary-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-primary-700 transition-colors"
+          >
+            Retry
+          </button>
+          <Link
+            to="/dashboard"
+            className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-center"
+          >
+            Go to Dashboard
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const auth = useAuth();
   const user = auth.user;
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasLoggedLoadingStart = useRef(false);
 
   const handleLogout = async () => {
     try {
@@ -23,27 +82,101 @@ export default function ProfilePage() {
   };
 
   const handleRefresh = async () => {
+    setLoadingError(null);
     await auth.refresh();
+  };
+
+  const handleRetry = async () => {
+    setLoadingError(null);
+    if (IS_DEV) {
+      console.log('[ProfilePage] Retrying auth refresh...');
+    }
+    await handleRefresh();
   };
 
   const toggleProfileMenu = () => {
     setIsProfileMenuOpen((prev) => !prev);
   };
 
-  // User should always be available here since route is protected
+  // Set up timeout for loading state
+  useEffect(() => {
+    if (auth.isLoading && !hasLoggedLoadingStart.current) {
+      hasLoggedLoadingStart.current = true;
+      if (IS_DEV) {
+        console.log('[ProfilePage] Loading started, setting timeout for', LOADING_TIMEOUT_MS, 'ms');
+      }
+      
+      timeoutRef.current = setTimeout(() => {
+        if (auth.isLoading) {
+          const errorMessage = auth.error || 'Loading took too long. Please check your connection and try again.';
+          setLoadingError(errorMessage);
+          if (IS_DEV) {
+            console.error('[ProfilePage] Loading timeout exceeded after', LOADING_TIMEOUT_MS, 'ms');
+          }
+        }
+      }, LOADING_TIMEOUT_MS);
+    } else if (!auth.isLoading) {
+      // Clear timeout if loading completes
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      hasLoggedLoadingStart.current = false;
+      
+      if (IS_DEV) {
+        console.log('[ProfilePage] Loading completed, user:', user?.email || 'null');
+      }
+    }
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [auth.isLoading, auth.error, user]);
+
+  // Log loading state changes
+  useEffect(() => {
+    if (IS_DEV) {
+      console.log('[ProfilePage] Auth state changed:', {
+        isLoading: auth.isLoading,
+        isAuthenticated: auth.isAuthenticated,
+        hasUser: !!user,
+        error: auth.error,
+      });
+    }
+  }, [auth.isLoading, auth.isAuthenticated, user, auth.error]);
+
+  // Show error display if there's a loading error
+  if (loadingError) {
+    return <ErrorDisplay message={loadingError} onRetry={handleRetry} />;
+  }
+
+  // Show error from auth context if available
+  if (auth.error && !auth.isLoading && !user) {
+    return <ErrorDisplay message={auth.error} onRetry={handleRetry} />;
+  }
+
+  // Show loading state while auth is loading or user is not available
   if (auth.isLoading || !user) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
           <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+          {IS_DEV && (
+            <p className="mt-2 text-xs text-gray-500">
+              {auth.isLoading ? 'Auth loading...' : 'Waiting for user data...'}
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar (only for authenticated users) */}
       <Sidebar />
 
@@ -301,5 +434,6 @@ export default function ProfilePage() {
       </main>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

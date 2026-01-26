@@ -64,8 +64,8 @@ export default function LandingPage() {
               <h1 className="text-5xl font-bold leading-tight mb-6">
                 <BlurText
                   text="Savvi"
-                  delay={300}
-                  animateBy="words"
+                  delay={0.2}
+                  animateBy="letters"
                   direction="top"
                   className="text-gray-900"
                 />
@@ -73,7 +73,8 @@ export default function LandingPage() {
                   {' '}
                   <BlurText
                     text="Personal Asset Tracker"
-                    delay={450}
+                    delay={0.45}
+                    animateBy="letters"
                     className="text-primary-600 italic"
                   />
                 </span>
@@ -99,7 +100,7 @@ export default function LandingPage() {
             </div>
           </AnimatedContentWrapper>
 
-          <AnimatedContentWrapper delay={0.2} duration={0.9} direction="horizontal" reverse>
+          <AnimatedContentWrapper delay={0.3} duration={0.9} direction="horizontal" reverse>
             <div className="">
               <div className="shadow-2xl rounded-xl overflow-hidden">
                 <img

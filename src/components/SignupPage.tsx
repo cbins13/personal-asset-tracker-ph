@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import { authApi } from "../utils/api";
+import { ErrorType } from "../utils/errorMessages";
 import logoSmall from "../assets/savvi_clean.png";
 import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 
@@ -16,6 +17,8 @@ export default function SignupPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [errorType, setErrorType] = useState<ErrorType | undefined>();
+  const [canRetry, setCanRetry] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -58,6 +61,8 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccessMessage("");
+    setErrorType(undefined);
+    setCanRetry(false);
 
     if (!validateForm()) {
       return;
@@ -85,13 +90,39 @@ export default function SignupPage() {
         }, 1500);
       } else {
         setErrors({ submit: response.error || "Registration failed" });
+        setErrorType(response.errorType);
+        setCanRetry(response.canRetry || false);
       }
     } catch (error) {
-      setErrors({
-        submit: error instanceof Error ? error.message : "An error occurred",
-      });
+      const errorMessage = error instanceof Error ? error.message : "An error occurred";
+      setErrors({ submit: errorMessage });
+      
+      // Determine error type from error message
+      if (errorMessage.includes('Network') || errorMessage.includes('fetch')) {
+        setErrorType(ErrorType.NETWORK);
+        setCanRetry(true);
+      } else if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
+        setErrorType(ErrorType.VALIDATION);
+        setCanRetry(false);
+      } else {
+        setErrorType(ErrorType.UNKNOWN);
+        setCanRetry(true);
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRetry = () => {
+    if (canRetry) {
+      setErrors({});
+      setErrorType(undefined);
+      setCanRetry(false);
+      // Retry the last action - resubmit form
+      const form = document.querySelector('form');
+      if (form) {
+        form.requestSubmit();
+      }
     }
   };
 
@@ -102,6 +133,8 @@ export default function SignupPage() {
 
     setIsLoading(true);
     setErrors({});
+    setErrorType(undefined);
+    setCanRetry(false);
 
     try {
       const response = await authApi.googleLogin(credentialResponse.credential);
@@ -116,11 +149,21 @@ export default function SignupPage() {
         navigate({ to: "/dashboard" });
       } else {
         setErrors({ submit: response.error || "Google signup failed" });
+        setErrorType(response.errorType);
+        setCanRetry(response.canRetry || false);
       }
     } catch (error) {
-      setErrors({
-        submit: error instanceof Error ? error.message : "An error occurred",
-      });
+      const errorMessage = error instanceof Error ? error.message : "An error occurred";
+      setErrors({ submit: errorMessage });
+      
+      // Determine error type from error message
+      if (errorMessage.includes('Network') || errorMessage.includes('fetch')) {
+        setErrorType(ErrorType.NETWORK);
+        setCanRetry(true);
+      } else {
+        setErrorType(ErrorType.UNKNOWN);
+        setCanRetry(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -161,8 +204,61 @@ export default function SignupPage() {
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {errors.submit && (
-              <div className="rounded-md bg-red-50 p-4">
-                <p className="text-sm text-red-800">{errors.submit}</p>
+              <div className={`rounded-md p-4 ${
+                errorType === ErrorType.NETWORK || errorType === ErrorType.SERVER
+                  ? 'bg-yellow-50 border border-yellow-200'
+                  : errorType === ErrorType.VALIDATION
+                  ? 'bg-orange-50 border border-orange-200'
+                  : 'bg-red-50 border border-red-200'
+              }`}>
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    {errorType === ErrorType.NETWORK || errorType === ErrorType.SERVER ? (
+                      <svg className="h-5 w-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    ) : errorType === ErrorType.VALIDATION ? (
+                      <svg className="h-5 w-5 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className={`text-sm font-medium ${
+                      errorType === ErrorType.NETWORK || errorType === ErrorType.SERVER
+                        ? 'text-yellow-800'
+                        : errorType === ErrorType.VALIDATION
+                        ? 'text-orange-800'
+                        : 'text-red-800'
+                    }`}>
+                      {errors.submit}
+                    </p>
+                    {errorType === ErrorType.VALIDATION && (
+                      <p className="mt-1 text-xs text-orange-700">
+                        Please check your input and try again.
+                      </p>
+                    )}
+                    {canRetry && (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={handleRetry}
+                          className={`text-sm font-medium underline ${
+                            errorType === ErrorType.NETWORK || errorType === ErrorType.SERVER
+                              ? 'text-yellow-800 hover:text-yellow-900'
+                              : 'text-red-800 hover:text-red-900'
+                          }`}
+                        >
+                          Try again
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

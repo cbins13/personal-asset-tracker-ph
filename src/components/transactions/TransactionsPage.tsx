@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { accountsApi, categoriesApi, transactionsApi, type Account, type Transaction } from "../../utils/api";
+import { ErrorType } from "../../utils/errorMessages";
 import { formatCurrency, formatDateTime } from "../../utils/formatters";
 import AnimatedContentWrapper from "../../effects/AnimatedContentWrapper";
 import AddTransactionModal, { type AddTransactionPayload, type CategoryOption } from "./AddTransactionModal";
@@ -49,6 +50,8 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TransactionWithAccounts[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<ErrorType | undefined>();
+  const [canRetry, setCanRetry] = useState(false);
   const [activeFilter, setActiveFilter] = useState<"all" | TransactionKind>("all");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>(fallbackCategories);
@@ -61,10 +64,14 @@ export default function TransactionsPage() {
     const response = await transactionsApi.list({ includeAccounts: true });
     if (!response.success) {
       setError(response.error || "Failed to load transactions.");
+      setErrorType(response.errorType);
+      setCanRetry(response.canRetry || false);
       setTransactions([]);
     } else {
       setTransactions((response.data?.transactions || []) as TransactionWithAccounts[]);
       setError(null);
+      setErrorType(undefined);
+      setCanRetry(false);
     }
     setIsLoading(false);
   };
@@ -133,6 +140,8 @@ export default function TransactionsPage() {
     const response = await transactionsApi.delete(transactionId);
     if (!response.success) {
       setError(response.error || "Failed to delete transaction.");
+      setErrorType(response.errorType);
+      setCanRetry(response.canRetry || false);
     } else {
       await fetchTransactions();
     }
@@ -182,7 +191,29 @@ export default function TransactionsPage() {
               {isLoading ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">Loading transactions...</p>
               ) : error ? (
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                <div className={`p-3 rounded-lg ${
+                  errorType === ErrorType.NETWORK || errorType === ErrorType.SERVER
+                    ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
+                    : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                }`}>
+                  <div className="flex items-start justify-between">
+                    <p className={`text-sm font-medium ${
+                      errorType === ErrorType.NETWORK || errorType === ErrorType.SERVER
+                        ? 'text-yellow-800 dark:text-yellow-200'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {error}
+                    </p>
+                    {canRetry && (
+                      <button
+                        onClick={fetchTransactions}
+                        className="ml-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 underline"
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                </div>
               ) : filteredTransactions.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">No transactions yet.</p>
               ) : (
@@ -214,37 +245,53 @@ export default function TransactionsPage() {
                             {formatCurrency(Math.abs(signedAmount))}
                           </p>
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleEditTransaction(tx)}
-                              className="p-2 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700"
-                              aria-label="Edit transaction"
-                              type="button"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M11 5h2a2 2 0 012 2v2m-5 9H6a2 2 0 01-2-2v-6a2 2 0 012-2h2m9.414-1.586a2 2 0 00-2.828 0L9 14.172V17h2.828l6.586-6.586a2 2 0 000-2.828z"
-                                />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTransaction(tx.id)}
-                              className="p-2 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                              aria-label="Delete transaction"
-                              type="button"
-                              disabled={isDeletingTransactionId === tx.id}
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M6 7h12m-9 4v6m6-6v6M9 7h6m-7 0h8a1 1 0 011 1v11a1 1 0 01-1 1H8a1 1 0 01-1-1V8a1 1 0 011-1zM10 4h4a1 1 0 011 1v2H9V5a1 1 0 011-1z"
-                                />
-                              </svg>
-                            </button>
+                            <div className="relative group">
+                              <button
+                                onClick={() => handleEditTransaction(tx)}
+                                className="p-2 rounded-full text-gray-500 bg-gray-100 dark:bg-gray-700 hover:text-gray-900 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                aria-label="Edit transaction"
+                                type="button"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M11 5h2a2 2 0 012 2v2m-5 9H6a2 2 0 01-2-2v-6a2 2 0 012-2h2m9.414-1.586a2 2 0 00-2.828 0L9 14.172V17h2.828l6.586-6.586a2 2 0 000-2.828z"
+                                  />
+                                </svg>
+                              </button>
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-medium text-white bg-gray-900 dark:bg-gray-100 dark:text-gray-900 rounded shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-10">
+                                Edit
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+                                  <div className="border-4 border-transparent border-t-gray-900 dark:border-t-gray-100"></div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="relative group">
+                              <button
+                                onClick={() => handleDeleteTransaction(tx.id)}
+                                className="p-2 rounded-full text-red-500 bg-red-50 dark:bg-red-900/20 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30"
+                                aria-label="Delete transaction"
+                                type="button"
+                                disabled={isDeletingTransactionId === tx.id}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 7h12m-9 4v6m6-6v6M9 7h6m-7 0h8a1 1 0 011 1v11a1 1 0 01-1 1H8a1 1 0 01-1-1V8a1 1 0 011-1zM10 4h4a1 1 0 011 1v2H9V5a1 1 0 011-1z"
+                                  />
+                                </svg>
+                              </button>
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-medium text-white bg-gray-900 dark:bg-gray-100 dark:text-gray-900 rounded shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-10">
+                                Delete
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+                                  <div className="border-4 border-transparent border-t-gray-900 dark:border-t-gray-100"></div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>

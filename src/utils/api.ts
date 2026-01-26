@@ -1,3 +1,6 @@
+import { parseApiError, ErrorType } from './errorMessages';
+import { withRetry } from './retry';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
 
 interface ApiResponse<T = any> {
@@ -5,6 +8,9 @@ interface ApiResponse<T = any> {
   data?: T;
   error?: string;
   message?: string;
+  errorType?: ErrorType;
+  canRetry?: boolean;
+  statusCode?: number;
 }
 
 interface AuthResponse {
@@ -39,22 +45,53 @@ export async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
+    // Wrap fetch call with retry logic for network errors and server errors
+    const response = await withRetry(
+      async () => {
+        const fetchResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers,
+          },
+          credentials: 'include', // Important for sessions
+        });
+
+        // If it's a server error (5xx), throw to trigger retry
+        if (!fetchResponse.ok && fetchResponse.status >= 500) {
+          const errorData = await fetchResponse.json().catch(() => ({}));
+          const error = new Error(errorData.error || 'Server error');
+          (error as any).statusCode = fetchResponse.status;
+          (error as any).errorType = ErrorType.SERVER;
+          throw error;
+        }
+
+        // For non-server errors, return response (no retry)
+        return fetchResponse;
       },
-      credentials: 'include', // Important for sessions
-    });
+      {
+        maxAttempts: 3,
+        initialDelay: 1000,
+        maxDelay: 10000,
+        backoffMultiplier: 2,
+      }
+    );
 
     const data = await response.json();
 
     if (!response.ok) {
+      const errorDetails = parseApiError(
+        { ...data, statusCode: response.status },
+        data.error || 'An error occurred'
+      );
+      
       return {
         success: false,
-        error: data.error || 'An error occurred',
+        error: errorDetails.userMessage,
         message: data.message,
+        errorType: errorDetails.type,
+        canRetry: errorDetails.canRetry,
+        statusCode: errorDetails.statusCode,
       };
     }
 
@@ -63,9 +100,15 @@ export async function apiRequest<T>(
       data,
     };
   } catch (error) {
+    // This catch handles network errors and server errors after retries are exhausted
+    const errorDetails = parseApiError(error, 'Network error occurred');
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorDetails.userMessage,
+      errorType: errorDetails.type,
+      canRetry: errorDetails.canRetry,
+      statusCode: errorDetails.statusCode,
     };
   }
 }

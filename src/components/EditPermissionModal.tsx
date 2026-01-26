@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { permissionsApi, type Permission } from '../utils/api';
+import { ErrorType } from '../utils/errorMessages';
 
 interface EditPermissionModalProps {
   permission: Permission | null;
@@ -29,6 +30,8 @@ export default function EditPermissionModal({
   const [isActive, setIsActive] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<ErrorType | undefined>();
+  const [canRetry, setCanRetry] = useState(false);
 
   // Initialize form when permission changes
   useEffect(() => {
@@ -44,6 +47,8 @@ export default function EditPermissionModal({
       setIsActive(true);
     }
     setError(null);
+    setErrorType(undefined);
+    setCanRetry(false);
   }, [permission, isCreate]);
 
   if (!isOpen) {
@@ -54,6 +59,8 @@ export default function EditPermissionModal({
     e.preventDefault();
     setIsSaving(true);
     setError(null);
+    setErrorType(undefined);
+    setCanRetry(false);
 
     // Validate name format (resource:action)
     if (!/^[a-z0-9]+:[a-z0-9]+$/.test(name)) {
@@ -88,9 +95,24 @@ export default function EditPermissionModal({
         onClose();
       } else {
         setError(response.error || `Failed to ${isCreate ? 'create' : 'update'} permission`);
+        setErrorType(response.errorType);
+        setCanRetry(response.canRetry || false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
+      
+      // Determine error type from error message
+      if (errorMessage.includes('Network') || errorMessage.includes('fetch')) {
+        setErrorType(ErrorType.NETWORK);
+        setCanRetry(true);
+      } else if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
+        setErrorType(ErrorType.VALIDATION);
+        setCanRetry(false);
+      } else {
+        setErrorType(ErrorType.UNKNOWN);
+        setCanRetry(true);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -144,8 +166,30 @@ export default function EditPermissionModal({
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {/* Error Message */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
+              <div className={`px-4 py-3 rounded-lg text-sm ${
+                errorType === ErrorType.NETWORK || errorType === ErrorType.SERVER
+                  ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+                  : errorType === ErrorType.VALIDATION
+                  ? 'bg-orange-50 border border-orange-200 text-orange-800'
+                  : 'bg-red-50 border border-red-200 text-red-700'
+              }`}>
+                <div className="flex items-start justify-between">
+                  <p className="flex-1">{error}</p>
+                  {canRetry && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const form = document.querySelector('form');
+                        if (form) {
+                          form.requestSubmit();
+                        }
+                      }}
+                      className="ml-3 text-sm font-medium underline hover:opacity-80"
+                    >
+                      Retry
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

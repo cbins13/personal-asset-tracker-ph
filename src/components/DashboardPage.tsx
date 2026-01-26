@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth";
+import { ErrorType } from "../utils/errorMessages";
 import logoSmall from "../assets/savvi_logo.png";
 import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 import Sidebar from "./Sidebar";
@@ -98,12 +99,18 @@ export default function DashboardPage() {
   const [isCreatingCustomProvider, setIsCreatingCustomProvider] = useState(false);
   const [customProviderLabel, setCustomProviderLabel] = useState("");
   const [customProviderError, setCustomProviderError] = useState<string | null>(null);
+  const [customProviderErrorType, setCustomProviderErrorType] = useState<ErrorType | undefined>();
+  const [customProviderCanRetry, setCustomProviderCanRetry] = useState(false);
   const [isSavingCustomProvider, setIsSavingCustomProvider] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountsError, setAccountsError] = useState<string | null>(null);
+  const [accountsErrorType, setAccountsErrorType] = useState<ErrorType | undefined>();
+  const [accountsCanRetry, setAccountsCanRetry] = useState(false);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  const [transactionsErrorType, setTransactionsErrorType] = useState<ErrorType | undefined>();
+  const [transactionsCanRetry, setTransactionsCanRetry] = useState(false);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [providersByType, setProvidersByType] = useState<ProvidersByType>({});
   const [isEditingAccountName, setIsEditingAccountName] = useState(false);
@@ -154,10 +161,14 @@ export default function DashboardPage() {
     const response = await accountsApi.getAll();
     if (!response.success) {
       setAccountsError(response.error || "Failed to load accounts.");
+      setAccountsErrorType(response.errorType);
+      setAccountsCanRetry(response.canRetry || false);
       setAccounts([]);
     } else {
       setAccounts(response.data?.accounts || []);
       setAccountsError(null);
+      setAccountsErrorType(undefined);
+      setAccountsCanRetry(false);
     }
     setIsLoadingAccounts(false);
   };
@@ -192,10 +203,14 @@ export default function DashboardPage() {
     });
     if (!response.success) {
       setTransactionsError(response.error || "Failed to load transactions.");
+      setTransactionsErrorType(response.errorType);
+      setTransactionsCanRetry(response.canRetry || false);
       setTransactions([]);
     } else {
       setTransactions(response.data?.transactions || []);
       setTransactionsError(null);
+      setTransactionsErrorType(undefined);
+      setTransactionsCanRetry(false);
     }
     setIsLoadingTransactions(false);
   };
@@ -230,6 +245,8 @@ export default function DashboardPage() {
     setIsCreatingCustomProvider(false);
     setCustomProviderLabel("");
     setCustomProviderError(null);
+    setCustomProviderErrorType(undefined);
+    setCustomProviderCanRetry(false);
   };
 
   const closeAddAccount = () => {
@@ -242,6 +259,8 @@ export default function DashboardPage() {
     setIsCreatingCustomProvider(false);
     setCustomProviderLabel("");
     setCustomProviderError(null);
+    setCustomProviderErrorType(undefined);
+    setCustomProviderCanRetry(false);
     setIsSavingCustomProvider(false);
   };
 
@@ -255,6 +274,8 @@ export default function DashboardPage() {
     if (!customProviderLabel.trim()) return;
     setIsSavingCustomProvider(true);
     setCustomProviderError(null);
+    setCustomProviderErrorType(undefined);
+    setCustomProviderCanRetry(false);
     const response = await accountsApi.createProvider({
       type: selectedAddType,
       providerLabel: customProviderLabel.trim(),
@@ -262,6 +283,8 @@ export default function DashboardPage() {
     setIsSavingCustomProvider(false);
     if (!response.success) {
       setCustomProviderError(response.error || "Failed to create custom account.");
+      setCustomProviderErrorType(response.errorType);
+      setCustomProviderCanRetry(response.canRetry || false);
       return;
     }
     const provider = response.data?.provider;
@@ -273,6 +296,8 @@ export default function DashboardPage() {
       setIsCreatingCustomProvider(false);
       setCustomProviderLabel("");
       setCustomProviderError(null);
+      setCustomProviderErrorType(undefined);
+      setCustomProviderCanRetry(false);
     }
   };
 
@@ -388,6 +413,8 @@ export default function DashboardPage() {
     const response = await transactionsApi.delete(transactionId);
     if (!response.success) {
       setTransactionsError(response.error || "Failed to delete transaction.");
+      setTransactionsErrorType(response.errorType);
+      setTransactionsCanRetry(response.canRetry || false);
     } else {
       await refreshAccounts();
       await fetchTransactions(selectedAccountId || undefined);
@@ -566,7 +593,31 @@ export default function DashboardPage() {
                   {isLoadingAccounts ? (
                     <div className="col-span-full text-sm text-gray-500 dark:text-gray-400">Loading accounts...</div>
                   ) : accountsError ? (
-                    <div className="col-span-full text-sm text-red-600 dark:text-red-400">{accountsError}</div>
+                    <div className={`col-span-full p-3 rounded-lg ${
+                      accountsErrorType === ErrorType.NETWORK || accountsErrorType === ErrorType.SERVER
+                        ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
+                        : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                    }`}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${
+                            accountsErrorType === ErrorType.NETWORK || accountsErrorType === ErrorType.SERVER
+                              ? 'text-yellow-800 dark:text-yellow-200'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {accountsError}
+                          </p>
+                        </div>
+                        {accountsCanRetry && (
+                          <button
+                            onClick={refreshAccounts}
+                            className="ml-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 underline"
+                          >
+                            Retry
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   ) : filteredAccounts.length === 0 ? (
                     <div className="col-span-full text-sm text-gray-500 dark:text-gray-400">No accounts yet.</div>
                   ) : (
@@ -626,7 +677,29 @@ export default function DashboardPage() {
                     {isLoadingTransactions ? (
                       <p className="text-sm text-gray-500 dark:text-gray-400">Loading transactions...</p>
                     ) : transactionsError ? (
-                      <p className="text-sm text-red-600 dark:text-red-400">{transactionsError}</p>
+                      <div className={`p-3 rounded-lg ${
+                        transactionsErrorType === ErrorType.NETWORK || transactionsErrorType === ErrorType.SERVER
+                          ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
+                          : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                      }`}>
+                        <div className="flex items-start justify-between">
+                          <p className={`text-sm font-medium ${
+                            transactionsErrorType === ErrorType.NETWORK || transactionsErrorType === ErrorType.SERVER
+                              ? 'text-yellow-800 dark:text-yellow-200'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {transactionsError}
+                          </p>
+                          {transactionsCanRetry && (
+                            <button
+                              onClick={() => fetchTransactions(selectedAccountId || undefined)}
+                              className="ml-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 underline"
+                            >
+                              Retry
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     ) : recentTransactions.length === 0 ? (
                       <p className="text-sm text-gray-500 dark:text-gray-400">No transactions yet.</p>
                     ) : (
@@ -856,7 +929,29 @@ export default function DashboardPage() {
                     {isLoadingTransactions ? (
                       <p className="text-sm text-gray-500 dark:text-gray-400">Loading transactions...</p>
                     ) : transactionsError ? (
-                      <p className="text-sm text-red-600 dark:text-red-400">{transactionsError}</p>
+                      <div className={`p-3 rounded-lg ${
+                        transactionsErrorType === ErrorType.NETWORK || transactionsErrorType === ErrorType.SERVER
+                          ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
+                          : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                      }`}>
+                        <div className="flex items-start justify-between">
+                          <p className={`text-sm font-medium ${
+                            transactionsErrorType === ErrorType.NETWORK || transactionsErrorType === ErrorType.SERVER
+                              ? 'text-yellow-800 dark:text-yellow-200'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {transactionsError}
+                          </p>
+                          {transactionsCanRetry && (
+                            <button
+                              onClick={() => fetchTransactions(selectedAccountId || undefined)}
+                              className="ml-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 underline"
+                            >
+                              Retry
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     ) : recentTransactions.length === 0 ? (
                       <p className="text-sm text-gray-500 dark:text-gray-400">No transactions yet.</p>
                     ) : (
@@ -1048,7 +1143,30 @@ export default function DashboardPage() {
                         className="w-full text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                       />
                       {customProviderError ? (
-                        <p className="text-sm text-red-600 dark:text-red-400">{customProviderError}</p>
+                        <div className={`p-3 rounded-lg ${
+                          customProviderErrorType === ErrorType.NETWORK || customProviderErrorType === ErrorType.SERVER
+                            ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
+                            : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                        }`}>
+                          <div className="flex items-start justify-between">
+                            <p className={`text-sm font-medium ${
+                              customProviderErrorType === ErrorType.NETWORK || customProviderErrorType === ErrorType.SERVER
+                                ? 'text-yellow-800 dark:text-yellow-200'
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {customProviderError}
+                            </p>
+                            {customProviderCanRetry && (
+                              <button
+                                type="button"
+                                onClick={handleCreateCustomProvider}
+                                className="ml-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 underline"
+                              >
+                                Retry
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       ) : null}
                       <div className="flex gap-2">
                         <button
