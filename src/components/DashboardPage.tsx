@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth";
 import logoSmall from "../assets/savvi_logo.png";
-import AnimatedContent from "../effects/AnimatedContent";
+import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 import Sidebar from "./Sidebar";
 import {
   accountsApi,
@@ -492,7 +492,7 @@ export default function DashboardPage() {
 
       {/* Main Content */}
         <main className="px-4 sm:px-6 lg:px-8 py-8 max-w-5xl mx-auto w-full">
-          <AnimatedContent delay={0.05} duration={0.8}>
+          <AnimatedContentWrapper delay={0.05} duration={0.8}>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 {selectedAccount ? (
@@ -937,7 +937,7 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
-          </AnimatedContent>
+          </AnimatedContentWrapper>
         </main>
       </div>
       <AddTransactionModal

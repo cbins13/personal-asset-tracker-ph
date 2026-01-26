@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "../auth";
 import logoSmall from "../assets/savvi_logo.png";
-import AnimatedContent from "../effects/AnimatedContent";
+import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 import Sidebar from "./Sidebar";
 
 export default function ProfilePage() {
@@ -120,7 +120,7 @@ export default function ProfilePage() {
         {/* Main Content */}
         <main className="px-4 sm:px-6 lg:px-8 py-8 max-w-5xl mx-auto w-full">
         {/* Welcome Section */}
-        <AnimatedContent delay={0.05} duration={0.8}>
+        <AnimatedContentWrapper delay={0.05} duration={0.8}>
           <div className="bg-white shadow rounded-lg p-6 mb-6">
             <div className="flex items-center justify-between">
               <div>
@@ -140,10 +140,10 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
-        </AnimatedContent>
+        </AnimatedContentWrapper>
 
         {/* Session Status Card */}
-        <AnimatedContent delay={0.12} duration={0.8}>
+        <AnimatedContentWrapper delay={0.12} duration={0.8}>
           <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
             <div className="flex items-center">
               <div className="shrink-0">
@@ -171,10 +171,10 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
-        </AnimatedContent>
+        </AnimatedContentWrapper>
 
         {/* User Information Card */}
-        <AnimatedContent delay={0.18} duration={0.85}>
+        <AnimatedContentWrapper delay={0.18} duration={0.85}>
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-900">
@@ -246,10 +246,10 @@ export default function ProfilePage() {
               </dl>
             </div>
           </div>
-        </AnimatedContent>
+        </AnimatedContentWrapper>
 
         {/* Session Details Card */}
-        <AnimatedContent delay={0.22} duration={0.85}>
+        <AnimatedContentWrapper delay={0.22} duration={0.85}>
           <div className="mt-6 bg-white shadow rounded-lg overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-900">
@@ -279,10 +279,10 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
-        </AnimatedContent>
+        </AnimatedContentWrapper>
 
         {/* Actions */}
-        <AnimatedContent delay={0.28} duration={0.8}>
+        <AnimatedContentWrapper delay={0.28} duration={0.8}>
           <div className="mt-6 flex justify-center space-x-4">
             <button
               onClick={handleRefresh}
@@ -297,7 +297,7 @@ export default function ProfilePage() {
               Logout
             </button>
           </div>
-        </AnimatedContent>
+        </AnimatedContentWrapper>
       </main>
       </div>
     </div>

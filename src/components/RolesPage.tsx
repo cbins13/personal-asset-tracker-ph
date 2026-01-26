@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth";
 import Sidebar from "./Sidebar";
-import AnimatedContent from "../effects/AnimatedContent";
+import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 import { rolesApi, type Role } from "../utils/api";
 import EditRoleModal from "./EditRoleModal";
 
@@ -105,7 +105,7 @@ export default function RolesPage() {
         </header>
 
         <main className="px-4 sm:px-6 lg:px-8 py-8 max-w-6xl mx-auto w-full">
-          <AnimatedContent delay={0.05} duration={0.8}>
+          <AnimatedContentWrapper delay={0.05} duration={0.8}>
             <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
@@ -227,7 +227,7 @@ export default function RolesPage() {
                 </div>
               )}
             </div>
-          </AnimatedContent>
+          </AnimatedContentWrapper>
         </main>
       </div>
 

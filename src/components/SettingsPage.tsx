@@ -6,6 +6,7 @@ import { authApi, usersApi } from "../utils/api";
 import { isMaliciousPassword } from "../utils/validators";
 import logoSmall from "../assets/savvi_logo.png";
 import Sidebar from "./Sidebar";
+import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 
 function DeleteAccountModal({
   isOpen,
@@ -299,156 +300,158 @@ export default function SettingsPage() {
         </header>
 
         <main className="px-4 sm:px-6 lg:px-8 py-8 max-w-2xl mx-auto w-full space-y-8">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Settings
-          </h1>
+          <AnimatedContentWrapper>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              Settings
+            </h1>
 
-          {user?.provider === "local" && (
+            {user?.provider === "local" && (
+              <section className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Change password
+                  </h2>
+                </div>
+                <form onSubmit={handleChangePassword} className="p-6 space-y-4">
+                  <div>
+                    <label
+                      htmlFor="old-password"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      Current password
+                    </label>
+                    <input
+                      id="old-password"
+                      type="password"
+                      value={oldPassword}
+                      onChange={(e) => setOldPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      autoComplete="current-password"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="new-password"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      New password
+                    </label>
+                    <input
+                      id="new-password"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="confirm-password"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      Confirm new password
+                    </label>
+                    <input
+                      id="confirm-password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  {changePwError && (
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      {changePwError}
+                    </p>
+                  )}
+                  {changePwSuccess && (
+                    <p className="text-sm text-green-600 dark:text-green-400">
+                      Password updated successfully.
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={changePwLoading}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {changePwLoading ? "Updating…" : "Update password"}
+                  </button>
+                </form>
+              </section>
+            )}
+
+            <section className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Dark mode
+                </h2>
+                <button
+                  type="button"
+                  onClick={toggleDarkMode}
+                  className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="Toggle dark mode"
+                >
+                  {isDark ? (
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                      />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              <div className="px-6 py-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Toggle light or dark theme. Your preference is saved locally.
+                </p>
+              </div>
+            </section>
+
             <section className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Change password
+                <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">
+                  Danger zone
                 </h2>
               </div>
-              <form onSubmit={handleChangePassword} className="p-6 space-y-4">
-                <div>
-                  <label
-                    htmlFor="old-password"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    Current password
-                  </label>
-                  <input
-                    id="old-password"
-                    type="password"
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    autoComplete="current-password"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="new-password"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    New password
-                  </label>
-                  <input
-                    id="new-password"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    autoComplete="new-password"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="confirm-password"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    Confirm new password
-                  </label>
-                  <input
-                    id="confirm-password"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    autoComplete="new-password"
-                  />
-                </div>
-                {changePwError && (
-                  <p className="text-sm text-red-600 dark:text-red-400">
-                    {changePwError}
-                  </p>
-                )}
-                {changePwSuccess && (
-                  <p className="text-sm text-green-600 dark:text-green-400">
-                    Password updated successfully.
-                  </p>
-                )}
+              <div className="p-6">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Permanently delete your account and all associated data. This cannot be
+                  undone.
+                </p>
                 <button
-                  type="submit"
-                  disabled={changePwLoading}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  type="button"
+                  onClick={() => setDeleteModalOpen(true)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
                 >
-                  {changePwLoading ? "Updating…" : "Update password"}
+                  Delete account
                 </button>
-              </form>
+              </div>
             </section>
-          )}
-
-          <section className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Dark mode
-              </h2>
-              <button
-                type="button"
-                onClick={toggleDarkMode}
-                className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                aria-label="Toggle dark mode"
-              >
-                {isDark ? (
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                    />
-                  </svg>
-                )}
-              </button>
-            </div>
-            <div className="px-6 py-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Toggle light or dark theme. Your preference is saved locally.
-              </p>
-            </div>
-          </section>
-
-          <section className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">
-                Danger zone
-              </h2>
-            </div>
-            <div className="p-6">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Permanently delete your account and all associated data. This cannot be
-                undone.
-              </p>
-              <button
-                type="button"
-                onClick={() => setDeleteModalOpen(true)}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-              >
-                Delete account
-              </button>
-            </div>
-          </section>
+          </AnimatedContentWrapper>
         </main>
       </div>
 

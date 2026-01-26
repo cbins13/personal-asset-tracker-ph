@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { accountsApi, categoriesApi, transactionsApi, type Account, type Transaction } from "../../utils/api";
 import { formatCurrency, formatDateTime } from "../../utils/formatters";
-import AnimatedContent from "../../effects/AnimatedContent";
+import AnimatedContentWrapper from "../../effects/AnimatedContentWrapper";
 import AddTransactionModal, { type AddTransactionPayload, type CategoryOption } from "./AddTransactionModal";
 
 type TransactionKind = "expense" | "income" | "installment" | "transfer";
@@ -160,7 +160,7 @@ export default function TransactionsPage() {
         </header>
 
         <main className="px-4 sm:px-6 lg:px-8 py-8 max-w-4xl mx-auto w-full">
-          <AnimatedContent delay={0.05} duration={0.8}>
+          <AnimatedContentWrapper delay={0.05} duration={0.8}>
             <div className="flex gap-2 flex-wrap mb-6">
               {filters.map((filter) => (
                 <button
@@ -253,7 +253,7 @@ export default function TransactionsPage() {
                 </div>
               )}
             </div>
-          </AnimatedContent>
+          </AnimatedContentWrapper>
         </main>
       </div>
       {transactionToEdit ? (

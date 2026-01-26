@@ -3,7 +3,7 @@ import logoSmall from '../assets/savvi_logo.png'
 import sampleHeroImage from '../assets/sample-hero.png'
 import { useAuth } from '../auth'
 import BlurText from '../effects/BlurText'
-import AnimatedContent from '../effects/AnimatedContent'
+import AnimatedContentWrapper from '../effects/AnimatedContentWrapper'
 
 export default function LandingPage() {
   const { isAuthenticated } = useAuth()
@@ -59,7 +59,7 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 flex items-center justify-center flex-1">
         <div className="grid md:grid-cols-1 lg:grid-cols-2 h-full gap-12 items-center">
-          <AnimatedContent delay={0.1} duration={0.9}>
+          <AnimatedContentWrapper delay={0.1} duration={0.9}>
             <div>
               <h1 className="text-5xl font-bold leading-tight mb-6">
                 <BlurText
@@ -97,9 +97,9 @@ export default function LandingPage() {
                 </Link>
               )}
             </div>
-          </AnimatedContent>
+          </AnimatedContentWrapper>
 
-          <AnimatedContent delay={0.2} duration={0.9} direction="horizontal" reverse>
+          <AnimatedContentWrapper delay={0.2} duration={0.9} direction="horizontal" reverse>
             <div className="">
               <div className="shadow-2xl rounded-xl overflow-hidden">
                 <img
@@ -109,7 +109,7 @@ export default function LandingPage() {
                 />
               </div>
             </div>
-          </AnimatedContent>
+          </AnimatedContentWrapper>
         </div>
       </section>
 
