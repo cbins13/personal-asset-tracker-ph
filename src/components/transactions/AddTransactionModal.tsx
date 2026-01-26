@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Account } from "../../utils/api";
+import type { Account, Transaction } from "../../utils/api";
 import { isMongoObjectId } from "../../utils/validators";
 
 export type TransactionKind = "expense" | "income" | "installment" | "transfer";
@@ -24,13 +24,26 @@ export type AddTransactionPayload = {
 };
 
 
-type Props = {
+type BaseProps = {
   isOpen: boolean;
   accounts: Account[];
   categories: CategoryOption[];
   onClose: () => void;
+  defaultAccountId?: string;
+};
+
+type CreateProps = BaseProps & {
+  mode?: "create";
   onCreate: (payload: AddTransactionPayload) => Promise<void>;
 };
+
+type EditProps = BaseProps & {
+  mode: "edit";
+  transaction: Transaction;
+  onUpdate: (transactionId: string, payload: AddTransactionPayload) => Promise<void>;
+};
+
+type Props = CreateProps | EditProps;
 
 const tabs: { id: TransactionKind; label: string }[] = [
   { id: "expense", label: "Expense" },
@@ -51,8 +64,13 @@ export default function AddTransactionModal({
   accounts,
   categories,
   onClose,
+  mode = "create",
   onCreate,
+  transaction,
+  onUpdate,
+  defaultAccountId,
 }: Props) {
+  const isEditMode = mode === "edit";
   const [activeTab, setActiveTab] = useState<TransactionKind>("expense");
   const [transactionDate, setTransactionDate] = useState("");
   const [transactionTime, setTransactionTime] = useState("");
@@ -68,6 +86,39 @@ export default function AddTransactionModal({
 
   useEffect(() => {
     if (!isOpen) return;
+    if (isEditMode && transaction) {
+      const kind = transaction.transactionKind
+        ? transaction.transactionKind
+        : transaction.type === "credit"
+        ? "income"
+        : transaction.type === "debit"
+        ? "expense"
+        : "expense";
+      const timestamp = transaction.occurredAt || transaction.createdAt;
+      const parsedDate = timestamp ? new Date(timestamp) : new Date();
+      const date = parsedDate.toISOString().slice(0, 10);
+      const time = parsedDate.toTimeString().slice(0, 5);
+      const matchedCategory = categories.find((category) => {
+        if (transaction.categoryId) return category.id === transaction.categoryId;
+        if (transaction.categoryLabel) {
+          return category.id === transaction.categoryLabel || category.label === transaction.categoryLabel;
+        }
+        return false;
+      });
+      setTransactionDate(date);
+      setTransactionTime(time);
+      setSelectedCategoryId(matchedCategory?.id || "");
+      setTransactionLabel(transaction.label || "");
+      setRecordInBudget(transaction.recordInBudget ?? true);
+      setAmount(transaction.amount?.toString() || "");
+      setSelectedAccountId(transaction.accountId || "");
+      setFromAccountId(transaction.fromAccountId || "");
+      setToAccountId(transaction.toAccountId || "");
+      setFormError(null);
+      setActiveTab(kind);
+      setIsSubmitting(false);
+      return;
+    }
     const { date, time } = getDefaultDateTime();
     setTransactionDate(date);
     setTransactionTime(time);
@@ -75,12 +126,13 @@ export default function AddTransactionModal({
     setTransactionLabel("");
     setRecordInBudget(true);
     setAmount("");
-    setSelectedAccountId("");
+    setSelectedAccountId(defaultAccountId || "");
     setFromAccountId("");
     setToAccountId("");
     setFormError(null);
     setActiveTab("expense");
-  }, [isOpen]);
+    setIsSubmitting(false);
+  }, [isOpen, isEditMode, transaction, categories, defaultAccountId]);
 
   const categoryOptions = useMemo(() => {
     return categories.map((category) => ({
@@ -138,10 +190,14 @@ export default function AddTransactionModal({
     };
 
     try {
-      await onCreate(payload);
+      if (isEditMode && transaction && onUpdate) {
+        await onUpdate(transaction.id, payload);
+      } else if (onCreate) {
+        await onCreate(payload);
+      }
     } catch (error) {
-      console.error("Create transaction error:", error);
-      setFormError("Failed to create transaction.");
+      console.error(`${isEditMode ? "Update" : "Create"} transaction error:`, error);
+      setFormError(`Failed to ${isEditMode ? "update" : "create"} transaction.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -153,7 +209,9 @@ export default function AddTransactionModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-2xl bg-gray-100 rounded-3xl shadow-xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-5">
-          <h2 className="text-2xl font-semibold text-gray-900">Add Transaction</h2>
+          <h2 className="text-2xl font-semibold text-gray-900">
+            {isEditMode ? "Edit Transaction" : "Add Transaction"}
+          </h2>
           <button
             onClick={onClose}
             className="p-2 rounded-full hover:bg-gray-200"
@@ -345,6 +403,8 @@ export default function AddTransactionModal({
             >
               {isSubmitting
                 ? "Saving..."
+                : isEditMode
+                ? "Update Transaction"
                 : `Add ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
             </button>
           </div>

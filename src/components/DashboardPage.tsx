@@ -109,6 +109,9 @@ export default function DashboardPage() {
   const [isEditingAccountName, setIsEditingAccountName] = useState(false);
   const [editAccountName, setEditAccountName] = useState("");
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
+  const [isEditTransactionOpen, setIsEditTransactionOpen] = useState(false);
+  const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
+  const [isDeletingTransactionId, setIsDeletingTransactionId] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryOption[]>(fallbackCategories);
 
   const selectedAccount = useMemo(
@@ -359,6 +362,37 @@ export default function DashboardPage() {
     setIsAddTransactionOpen(false);
     await refreshAccounts();
     await fetchTransactions(selectedAccountId || undefined);
+  };
+
+  const handleEditTransaction = (tx: Transaction) => {
+    setTransactionToEdit(tx);
+    setIsEditTransactionOpen(true);
+  };
+
+  const handleUpdateTransaction = async (transactionId: string, payload: AddTransactionPayload) => {
+    const response = await transactionsApi.update(transactionId, payload);
+    if (!response.success) {
+      throw new Error(response.error || "Failed to update transaction.");
+    }
+    setIsEditTransactionOpen(false);
+    setTransactionToEdit(null);
+    await refreshAccounts();
+    await fetchTransactions(selectedAccountId || undefined);
+  };
+
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (!window.confirm("Delete this transaction? This will update account balances.")) {
+      return;
+    }
+    setIsDeletingTransactionId(transactionId);
+    const response = await transactionsApi.delete(transactionId);
+    if (!response.success) {
+      setTransactionsError(response.error || "Failed to delete transaction.");
+    } else {
+      await refreshAccounts();
+      await fetchTransactions(selectedAccountId || undefined);
+    }
+    setIsDeletingTransactionId(null);
   };
 
   const getProviderMeta = (account: Account) => {
@@ -612,15 +646,50 @@ export default function DashboardPage() {
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getAccountLabel(tx)}</p>
                             </div>
-                            <p
-                              className={[
-                                "text-base font-semibold",
-                                signedAmount < 0 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400",
-                              ].join(" ")}
-                            >
-                              {signedAmount < 0 ? "-" : ""}
-                              {formatCurrency(Math.abs(signedAmount))}
-                            </p>
+                            <div className="flex items-center gap-3">
+                              <p
+                                className={[
+                                  "text-base font-semibold",
+                                  signedAmount < 0 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400",
+                                ].join(" ")}
+                              >
+                                {signedAmount < 0 ? "-" : ""}
+                                {formatCurrency(Math.abs(signedAmount))}
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleEditTransaction(tx)}
+                                  className="p-2 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                  aria-label="Edit transaction"
+                                  type="button"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M11 5h2a2 2 0 012 2v2m-5 9H6a2 2 0 01-2-2v-6a2 2 0 012-2h2m9.414-1.586a2 2 0 00-2.828 0L9 14.172V17h2.828l6.586-6.586a2 2 0 000-2.828z"
+                                    />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTransaction(tx.id)}
+                                  className="p-2 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  aria-label="Delete transaction"
+                                  type="button"
+                                  disabled={isDeletingTransactionId === tx.id}
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 7h12m-9 4v6m6-6v6M9 7h6m-7 0h8a1 1 0 011 1v11a1 1 0 01-1 1H8a1 1 0 01-1-1V8a1 1 0 011-1zM10 4h4a1 1 0 011 1v2H9V5a1 1 0 011-1z"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         );
                       })
@@ -765,11 +834,23 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Transactions</h2>
-                    <Link to="/transactions" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-                      View all
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setIsAddTransactionOpen(true)}
+                        className="px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        type="button"
+                      >
+                        Add Transaction
+                      </button>
+                      <Link
+                        to="/transactions"
+                        className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                      >
+                        View all
+                      </Link>
+                    </div>
                   </div>
                   <div className="mt-4 space-y-4">
                     {isLoadingTransactions ? (
@@ -795,15 +876,50 @@ export default function DashboardPage() {
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getAccountLabel(tx)}</p>
                             </div>
-                            <p
-                              className={[
-                                "text-base font-semibold",
-                                signedAmount < 0 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400",
-                              ].join(" ")}
-                            >
-                              {signedAmount < 0 ? "-" : ""}
-                              {formatCurrency(Math.abs(signedAmount))}
-                            </p>
+                            <div className="flex items-center gap-3">
+                              <p
+                                className={[
+                                  "text-base font-semibold",
+                                  signedAmount < 0 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400",
+                                ].join(" ")}
+                              >
+                                {signedAmount < 0 ? "-" : ""}
+                                {formatCurrency(Math.abs(signedAmount))}
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleEditTransaction(tx)}
+                                  className="p-2 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                  aria-label="Edit transaction"
+                                  type="button"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M11 5h2a2 2 0 012 2v2m-5 9H6a2 2 0 01-2-2v-6a2 2 0 012-2h2m9.414-1.586a2 2 0 00-2.828 0L9 14.172V17h2.828l6.586-6.586a2 2 0 000-2.828z"
+                                    />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTransaction(tx.id)}
+                                  className="p-2 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  aria-label="Delete transaction"
+                                  type="button"
+                                  disabled={isDeletingTransactionId === tx.id}
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 7h12m-9 4v6m6-6v6M9 7h6m-7 0h8a1 1 0 011 1v11a1 1 0 01-1 1H8a1 1 0 01-1-1V8a1 1 0 011-1zM10 4h4a1 1 0 011 1v2H9V5a1 1 0 011-1z"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         );
                       })
@@ -830,7 +946,22 @@ export default function DashboardPage() {
         categories={categories}
         onClose={() => setIsAddTransactionOpen(false)}
         onCreate={handleCreateTransaction}
+        defaultAccountId={selectedAccountId || undefined}
       />
+      {transactionToEdit ? (
+        <AddTransactionModal
+          isOpen={isEditTransactionOpen}
+          accounts={accounts}
+          categories={categories}
+          onClose={() => {
+            setIsEditTransactionOpen(false);
+            setTransactionToEdit(null);
+          }}
+          mode="edit"
+          transaction={transactionToEdit}
+          onUpdate={handleUpdateTransaction}
+        />
+      ) : null}
 
       {isAddAccountOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 px-4">
