@@ -15,7 +15,7 @@ const accountSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['Wallet', 'Savings', 'Credit', 'Loans', 'Investments', 'Assets'],
+      enum: ['Wallet', 'Savings', 'Credit', 'Loans', 'Investments', 'Assets', 'Custom - Other'],
       required: true,
     },
     providerId: {

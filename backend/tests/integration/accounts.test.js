@@ -4,6 +4,7 @@ import app from '../../app.js';
 import Account from '../../models/Account.js';
 import Transaction from '../../models/Transaction.js';
 import AccountType from '../../models/AccountType.js';
+import CustomProvider from '../../models/CustomProvider.js';
 import User from '../../models/User.js';
 import { createTestUser } from '../helpers/auth.js';
 import { createAccountFactory } from '../helpers/factories.js';
@@ -49,6 +50,18 @@ describe('Account Endpoints', () => {
         await new creditType({
           type: 'Credit',
           accountName: 'Credit',
+          currentBalance: 0,
+        }).save();
+      }
+    }
+
+    const customOtherType = AccountType.discriminators?.['Custom - Other'];
+    if (customOtherType) {
+      const existing = await customOtherType.findOne({ type: 'Custom - Other' });
+      if (!existing) {
+        await new customOtherType({
+          type: 'Custom - Other',
+          accountName: 'Custom - Other',
           currentBalance: 0,
         }).save();
       }
@@ -192,6 +205,21 @@ describe('Account Endpoints', () => {
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('success', false);
       expect(response.body.error).toContain('not supported');
+    });
+
+    it('should create a custom account with Custom - Other type', async () => {
+      const agent = await getAuthenticatedAgent();
+      const response = await agent
+        .post('/api/accounts')
+        .send({
+          accountName: 'My Custom Account',
+          type: 'Custom - Other',
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.account.accountName).toBe('My Custom Account');
+      expect(response.body.account.type).toBe('Custom - Other');
     });
   });
 
@@ -342,11 +370,79 @@ describe('Account Endpoints', () => {
       expect(response.body.providersByType).toHaveProperty('Savings');
     });
 
+    it('should return only user-specific providers for the current user', async () => {
+      const otherUser = await createTestUser({ email: 'providerother@example.com' });
+      await CustomProvider.create({
+        userId: user._id,
+        type: 'Wallet',
+        providerId: 'custom-wallet',
+        providerLabel: 'My Custom Wallet',
+        accent: 'bg-gray-500',
+      });
+      await CustomProvider.create({
+        userId: otherUser._id,
+        type: 'Wallet',
+        providerId: 'other-wallet',
+        providerLabel: 'Other Custom Wallet',
+        accent: 'bg-gray-500',
+      });
+
+      const agent = await getAuthenticatedAgent();
+      const response = await agent.get('/api/accounts/providers');
+
+      expect(response.status).toBe(200);
+      const walletProviders = response.body.providersByType.Wallet || [];
+      const providerLabels = walletProviders.map((provider) => provider.label);
+      expect(providerLabels).toContain('My Custom Wallet');
+      expect(providerLabels).not.toContain('Other Custom Wallet');
+    });
+
     it('should require authentication', async () => {
       const response = await request(app).get('/api/accounts/providers');
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('success', false);
+    });
+  });
+
+  describe('POST /api/accounts/providers', () => {
+    it('should create a custom provider with Custom type', async () => {
+      const agent = await getAuthenticatedAgent();
+      const response = await agent
+        .post('/api/accounts/providers')
+        .send({
+          type: 'Custom',
+          providerLabel: 'My Custom Account',
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.provider.label).toBe('My Custom Account');
+
+      const stored = await CustomProvider.findOne({
+        userId: user._id,
+        providerLabel: 'My Custom Account',
+        type: 'Custom',
+      });
+      expect(stored).not.toBeNull();
+    });
+
+    it('should normalize Wallet type to Custom for custom providers', async () => {
+      const agent = await getAuthenticatedAgent();
+      const response = await agent
+        .post('/api/accounts/providers')
+        .send({
+          type: 'Wallet',
+          providerLabel: 'Wallet Custom',
+        });
+
+      expect(response.status).toBe(201);
+      const stored = await CustomProvider.findOne({
+        userId: user._id,
+        providerLabel: 'Wallet Custom',
+        type: 'Custom',
+      });
+      expect(stored).not.toBeNull();
     });
   });
 });

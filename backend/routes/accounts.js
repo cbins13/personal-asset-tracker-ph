@@ -2,49 +2,13 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Account from '../models/Account.js';
 import AccountType from '../models/AccountType.js';
+import Provider from '../models/Provider.js';
+import CustomProvider from '../models/CustomProvider.js';
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
-
-const accountProvidersByType = {
-  Wallet: [
-    { id: 'cash', label: 'Cash on Hand', accent: 'bg-green-500' },
-    { id: 'beep', label: 'Beep - Wallet', accent: 'bg-blue-900' },
-    { id: 'gcash', label: 'GCash - Wallet', accent: 'bg-blue-500' },
-    { id: 'gotyme', label: 'GoTyme - Wallet', accent: 'bg-cyan-500' },
-    { id: 'grabpay', label: 'GrabPay - Wallet', accent: 'bg-emerald-500' },
-    { id: 'joyride', label: 'JoyRide Pay - Wallet', accent: 'bg-indigo-600' },
-    { id: 'lazada', label: 'Lazada - Wallet', accent: 'bg-pink-500' },
-    { id: 'maya', label: 'Maya - Wallet', accent: 'bg-gray-900' },
-  ],
-  Savings: [
-    { id: 'bpi', label: 'BPI - Savings', accent: 'bg-red-500' },
-    { id: 'bdo', label: 'BDO - Savings', accent: 'bg-blue-600' },
-    { id: 'metrobank', label: 'Metrobank - Savings', accent: 'bg-indigo-700' },
-    { id: 'unionbank', label: 'UnionBank - Savings', accent: 'bg-orange-500' },
-  ],
-  Credit: [
-    { id: 'citi', label: 'Citi - Credit', accent: 'bg-blue-700' },
-    { id: 'bpi-credit', label: 'BPI - Credit', accent: 'bg-red-600' },
-    { id: 'bdo-credit', label: 'BDO - Credit', accent: 'bg-blue-500' },
-  ],
-  Loans: [
-    { id: 'atome', label: 'Atome - Loan/Credit', accent: 'bg-lime-300' },
-    { id: 'billease', label: 'Billease - Loan/Credit', accent: 'bg-blue-400' },
-    { id: 'cashalo', label: 'Cashalo - Loan/Credit', accent: 'bg-yellow-400' },
-    { id: 'cimb', label: 'CIMB - Loan/Credit', accent: 'bg-red-500' },
-    { id: 'gcash-loan', label: 'GCash - Loan/Credit', accent: 'bg-blue-500' },
-    { id: 'gotyme-loan', label: 'GoTyme - Loan/Credit', accent: 'bg-cyan-500' },
-    { id: 'homecredit', label: 'Home Credit - Loan/Credit', accent: 'bg-red-400' },
-  ],
-  Investments: [
-    { id: 'mp2', label: 'MP2 - Investments', accent: 'bg-indigo-600' },
-    { id: 'col', label: 'COL - Investments', accent: 'bg-gray-700' },
-    { id: 'gcash-invest', label: 'GCash - Investments', accent: 'bg-blue-500' },
-  ],
-};
 
 const defaultAccountTypes = [
   {
@@ -87,6 +51,13 @@ const defaultAccountTypes = [
       currentBalance: 0,
     },
   },
+  {
+    type: 'Custom - Other',
+    data: {
+      accountName: 'Custom - Other',
+      currentBalance: 0,
+    },
+  },
 ];
 
 let ensureAccountTypesPromise = null;
@@ -113,9 +84,96 @@ async function ensureAccountTypes() {
   await ensureAccountTypesPromise;
 }
 
+function buildProviderId(label) {
+  return (
+    label
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+      .slice(0, 60) || 'custom-provider'
+  );
+}
+
 // Get account providers catalog
 router.get('/providers', requireAuth, async (req, res) => {
-  res.json({ success: true, providersByType: accountProvidersByType });
+  try {
+    const [globalProviders, customProviders] = await Promise.all([
+      Provider.find().sort({ type: 1, providerLabel: 1 }).lean(),
+      CustomProvider.find({ userId: req.session.userId }).sort({ type: 1, providerLabel: 1 }).lean(),
+    ]);
+    const providers = [...globalProviders, ...customProviders];
+    const providersByType = providers.reduce((acc, provider) => {
+      const key = provider.type;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push({
+        id: provider.providerId,
+        label: provider.providerLabel,
+        accent: provider.accent || 'bg-gray-500',
+      });
+      return acc;
+    }, {});
+
+    res.json({ success: true, providersByType });
+  } catch (error) {
+    console.error('Get account providers error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get providers', details: error.message });
+  }
+});
+
+// Create custom provider (user-scoped)
+router.post('/providers', requireAuth, async (req, res) => {
+  try {
+    const { type: requestedType, providerLabel, accent } = req.body;
+    if (!requestedType || !providerLabel || !providerLabel.trim()) {
+      return res.status(400).json({ success: false, error: 'type and providerLabel are required' });
+    }
+
+    if (requestedType !== 'Custom') {
+      const isAllowedType = await isAccountTypeAllowed(requestedType);
+      if (!isAllowedType) {
+        return res.status(400).json({ success: false, error: `Account type "${requestedType}" is not supported` });
+      }
+    }
+
+    const type = requestedType === 'Wallet' ? 'Custom' : requestedType;
+    const normalizedLabel = providerLabel.trim();
+    const providerId = buildProviderId(normalizedLabel);
+
+    const existing = await CustomProvider.findOne({
+      userId: req.session.userId,
+      type,
+      $or: [{ providerId }, { providerLabel: normalizedLabel }],
+    });
+
+    if (existing) {
+      return res.status(200).json({
+        success: true,
+        provider: {
+          id: existing.providerId,
+          label: existing.providerLabel,
+          accent: existing.accent || 'bg-gray-500',
+        },
+      });
+    }
+
+    const provider = new CustomProvider({
+      userId: req.session.userId,
+      type,
+      providerId,
+      providerLabel: normalizedLabel,
+      accent: accent || 'bg-gray-500',
+    });
+    await provider.save();
+
+    res.status(201).json({
+      success: true,
+      provider: { id: provider.providerId, label: provider.providerLabel, accent: provider.accent },
+    });
+  } catch (error) {
+    console.error('Create provider error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create provider', details: error.message });
+  }
 });
 
 async function isAccountTypeAllowed(type) {

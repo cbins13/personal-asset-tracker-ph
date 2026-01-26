@@ -7,6 +7,7 @@ import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import Category from '../models/Category.js';
+import Provider from '../models/Provider.js';
 import connectDB from '../config/database.js';
 import { hashPassword } from '../utils/password.js';
 
@@ -172,6 +173,13 @@ const accountTypesToCreate = [
       currentBalance: 0,
     },
   },
+  {
+    type: 'Custom - Other',
+    data: {
+      accountName: 'Custom - Other',
+      currentBalance: 0,
+    },
+  },
 ];
 
 const categoriesToCreate = [
@@ -189,6 +197,59 @@ const categoriesToCreate = [
   { label: 'Subscriptions', emoji: '🔔', type: 'expense' },
   { label: 'Transportation', emoji: '🚗', type: 'expense' },
   { label: 'Utilities', emoji: '💡', type: 'expense' },
+];
+
+const providersToCreate = [
+  {
+    type: 'Wallet',
+    providers: [
+      { providerId: 'cash', providerLabel: 'Cash on Hand', accent: 'bg-green-500' },
+      { providerId: 'beep', providerLabel: 'Beep - Wallet', accent: 'bg-blue-900' },
+      { providerId: 'gcash', providerLabel: 'GCash - Wallet', accent: 'bg-blue-500' },
+      { providerId: 'gotyme', providerLabel: 'GoTyme - Wallet', accent: 'bg-cyan-500' },
+      { providerId: 'grabpay', providerLabel: 'GrabPay - Wallet', accent: 'bg-emerald-500' },
+      { providerId: 'joyride', providerLabel: 'JoyRide Pay - Wallet', accent: 'bg-indigo-600' },
+      { providerId: 'lazada', providerLabel: 'Lazada - Wallet', accent: 'bg-pink-500' },
+      { providerId: 'maya', providerLabel: 'Maya - Wallet', accent: 'bg-gray-900' },
+    ],
+  },
+  {
+    type: 'Savings',
+    providers: [
+      { providerId: 'bpi', providerLabel: 'BPI - Savings', accent: 'bg-red-500' },
+      { providerId: 'bdo', providerLabel: 'BDO - Savings', accent: 'bg-blue-600' },
+      { providerId: 'metrobank', providerLabel: 'Metrobank - Savings', accent: 'bg-indigo-700' },
+      { providerId: 'unionbank', providerLabel: 'UnionBank - Savings', accent: 'bg-orange-500' },
+    ],
+  },
+  {
+    type: 'Credit',
+    providers: [
+      { providerId: 'citi', providerLabel: 'Citi - Credit', accent: 'bg-blue-700' },
+      { providerId: 'bpi-credit', providerLabel: 'BPI - Credit', accent: 'bg-red-600' },
+      { providerId: 'bdo-credit', providerLabel: 'BDO - Credit', accent: 'bg-blue-500' },
+    ],
+  },
+  {
+    type: 'Loans',
+    providers: [
+      { providerId: 'atome', providerLabel: 'Atome - Loan/Credit', accent: 'bg-lime-300' },
+      { providerId: 'billease', providerLabel: 'Billease - Loan/Credit', accent: 'bg-blue-400' },
+      { providerId: 'cashalo', providerLabel: 'Cashalo - Loan/Credit', accent: 'bg-yellow-400' },
+      { providerId: 'cimb', providerLabel: 'CIMB - Loan/Credit', accent: 'bg-red-500' },
+      { providerId: 'gcash-loan', providerLabel: 'GCash - Loan/Credit', accent: 'bg-blue-500' },
+      { providerId: 'gotyme-loan', providerLabel: 'GoTyme - Loan/Credit', accent: 'bg-cyan-500' },
+      { providerId: 'homecredit', providerLabel: 'Home Credit - Loan/Credit', accent: 'bg-red-400' },
+    ],
+  },
+  {
+    type: 'Investments',
+    providers: [
+      { providerId: 'mp2', providerLabel: 'MP2 - Investments', accent: 'bg-indigo-600' },
+      { providerId: 'col', providerLabel: 'COL - Investments', accent: 'bg-gray-700' },
+      { providerId: 'gcash-invest', providerLabel: 'GCash - Investments', accent: 'bg-blue-500' },
+    ],
+  },
 ];
 
 async function seedInitialData() {
@@ -285,7 +346,25 @@ async function seedInitialData() {
       console.log(`  ✓ Created category: ${categoryData.label}`);
     }
 
-    // Step 5: Create demo user + demo accounts (optional helper data)
+    // Step 5: Create providers catalog
+    console.log('\n=== Creating Providers ===');
+    const existingProviderCount = await Provider.countDocuments();
+    if (existingProviderCount > 0) {
+      console.log('  ⏭️  Providers already exist, skipping provider seeding...');
+    } else {
+      const providerDocs = providersToCreate.flatMap((group) =>
+        group.providers.map((provider) => ({
+          ...provider,
+          type: group.type,
+        }))
+      );
+      if (providerDocs.length > 0) {
+        await Provider.insertMany(providerDocs);
+        console.log(`  ✓ Created ${providerDocs.length} providers`);
+      }
+    }
+
+    // Step 6: Create demo user + demo accounts (optional helper data)
     console.log('\n=== Creating Demo User & Accounts ===');
     const demoEmail = 'demo@savvi.local';
     const demoPassword = 'Demo123!';

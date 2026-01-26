@@ -22,6 +22,18 @@ describe('Account Type Endpoints', () => {
         }).save();
       }
     }
+
+    const customOtherType = AccountType.discriminators?.['Custom - Other'];
+    if (customOtherType) {
+      const existing = await customOtherType.findOne({ type: 'Custom - Other' });
+      if (!existing) {
+        await new customOtherType({
+          type: 'Custom - Other',
+          accountName: 'Custom - Other',
+          currentBalance: 0,
+        }).save();
+      }
+    }
   });
 
   const getAuthenticatedAgent = async () => {

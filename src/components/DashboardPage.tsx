@@ -18,10 +18,11 @@ import AddTransactionModal, {
   type CategoryOption,
 } from "./transactions/AddTransactionModal";
 
-const accountFilters = ["All", "Wallet", "Savings", "Credit", "Loans", "Investments"];
-const addAccountTabs = ["Wallet", "Savings", "Credit", "Loans", "Investments"];
+const accountFilters = ["All", "Wallet", "Savings", "Credit", "Loans", "Investments", "Custom - Other"];
+const addAccountTabs = ["Custom", "Wallet", "Savings", "Credit", "Loans", "Investments"];
 
 const accountProvidersFallback: Record<string, { id: string; label: string; accent: string }[]> = {
+  Custom: [],
   Wallet: [
     { id: "cash", label: "Cash on Hand", accent: "bg-green-500" },
     { id: "beep", label: "Beep - Wallet", accent: "bg-blue-900" },
@@ -86,20 +87,25 @@ export default function DashboardPage() {
   const [isNetWorthHidden, setIsNetWorthHidden] = useState(false);
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [addAccountStep, setAddAccountStep] = useState<"selectProvider" | "form">("selectProvider");
-  const [selectedAddType, setSelectedAddType] = useState("Wallet");
+  const [selectedAddType, setSelectedAddType] = useState("Custom");
   const [selectedProvider, setSelectedProvider] = useState<{ id: string; label: string; accent: string } | null>(
     null
   );
   const [accountName, setAccountName] = useState("");
   const [accountBalance, setAccountBalance] = useState("");
   const [accountAddToNetWorth, setAccountAddToNetWorth] = useState(true);
+  const [isCustomAccount, setIsCustomAccount] = useState(false);
+  const [isCreatingCustomProvider, setIsCreatingCustomProvider] = useState(false);
+  const [customProviderLabel, setCustomProviderLabel] = useState("");
+  const [customProviderError, setCustomProviderError] = useState<string | null>(null);
+  const [isSavingCustomProvider, setIsSavingCustomProvider] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountsError, setAccountsError] = useState<string | null>(null);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
-  const [providersByType, setProvidersByType] = useState<ProvidersByType>(accountProvidersFallback);
+  const [providersByType, setProvidersByType] = useState<ProvidersByType>({});
   const [isEditingAccountName, setIsEditingAccountName] = useState(false);
   const [editAccountName, setEditAccountName] = useState("");
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
@@ -157,6 +163,8 @@ export default function DashboardPage() {
     const response = await accountsApi.getProviders();
     if (response.success && response.data?.providersByType) {
       setProvidersByType(response.data.providersByType);
+    } else {
+      setProvidersByType(accountProvidersFallback);
     }
   };
 
@@ -213,8 +221,12 @@ export default function DashboardPage() {
   const openAddAccount = () => {
     setIsAddAccountOpen(true);
     setAddAccountStep("selectProvider");
-    setSelectedAddType("Wallet");
+    setSelectedAddType("Custom");
     setSelectedProvider(null);
+    setIsCustomAccount(false);
+    setIsCreatingCustomProvider(false);
+    setCustomProviderLabel("");
+    setCustomProviderError(null);
   };
 
   const closeAddAccount = () => {
@@ -223,19 +235,52 @@ export default function DashboardPage() {
     setAccountName("");
     setAccountBalance("");
     setAccountAddToNetWorth(true);
+    setIsCustomAccount(false);
+    setIsCreatingCustomProvider(false);
+    setCustomProviderLabel("");
+    setCustomProviderError(null);
+    setIsSavingCustomProvider(false);
   };
 
   const handleSelectProvider = (provider: { id: string; label: string; accent: string }) => {
     setSelectedProvider(provider);
+    setIsCustomAccount(false);
     setAddAccountStep("form");
+  };
+
+  const handleCreateCustomProvider = async () => {
+    if (!customProviderLabel.trim()) return;
+    setIsSavingCustomProvider(true);
+    setCustomProviderError(null);
+    const response = await accountsApi.createProvider({
+      type: selectedAddType,
+      providerLabel: customProviderLabel.trim(),
+    });
+    setIsSavingCustomProvider(false);
+    if (!response.success) {
+      setCustomProviderError(response.error || "Failed to create custom account.");
+      return;
+    }
+    const provider = response.data?.provider;
+    if (provider) {
+      await refreshProviders();
+      setSelectedProvider(provider);
+      setIsCustomAccount(true);
+      setAddAccountStep("form");
+      setIsCreatingCustomProvider(false);
+      setCustomProviderLabel("");
+      setCustomProviderError(null);
+    }
   };
 
   const handleAddAccount = async () => {
     if (!accountName.trim()) return;
     const balanceValue = Number(accountBalance || 0);
+    const effectiveType =
+      isCustomAccount && selectedAddType === "Custom" ? "Custom - Other" : selectedAddType;
     const response = await accountsApi.create({
       accountName: accountName.trim(),
-      type: selectedAddType,
+      type: effectiveType,
       currentBalance: Number.isNaN(balanceValue) ? 0 : balanceValue,
       addToNetWorth: accountAddToNetWorth,
       providerId: selectedProvider?.id,
@@ -822,7 +867,13 @@ export default function DashboardPage() {
                   {addAccountTabs.map((tab) => (
                     <button
                       key={tab}
-                      onClick={() => setSelectedAddType(tab)}
+                      onClick={() => {
+                        setSelectedAddType(tab);
+                        setIsCustomAccount(false);
+                        setIsCreatingCustomProvider(false);
+                        setCustomProviderLabel("");
+                        setCustomProviderError(null);
+                      }}
                       className={[
                         "px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap",
                         selectedAddType === tab
@@ -852,6 +903,54 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 </div>
+                <div className="mt-4">
+                  {isCreatingCustomProvider ? (
+                    <div className="bg-white dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 p-4 space-y-3">
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Custom account name
+                      </label>
+                      <input
+                        type="text"
+                        value={customProviderLabel}
+                        onChange={(event) => setCustomProviderLabel(event.target.value)}
+                        placeholder="e.g., My Custom Account"
+                        className="w-full text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
+                      />
+                      {customProviderError ? (
+                        <p className="text-sm text-red-600 dark:text-red-400">{customProviderError}</p>
+                      ) : null}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCreateCustomProvider}
+                          disabled={!customProviderLabel.trim() || isSavingCustomProvider}
+                          className="px-4 py-2 rounded-xl bg-lime-300 dark:bg-lime-600 text-gray-900 dark:text-gray-100 text-sm font-semibold disabled:opacity-60"
+                        >
+                          {isSavingCustomProvider ? "Saving..." : "Create Account"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCreatingCustomProvider(false);
+                            setCustomProviderLabel("");
+                            setCustomProviderError(null);
+                          }}
+                          className="px-4 py-2 rounded-xl bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingCustomProvider(true)}
+                      className="w-full px-4 py-3 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      Add custom account
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -873,7 +972,7 @@ export default function DashboardPage() {
                 <div className="space-y-4">
                   <div className="bg-white dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 p-4">
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      {selectedAddType} name
+                      {isCustomAccount ? "Account name" : `${selectedAddType} name`}
                     </label>
                     <input
                       type="text"

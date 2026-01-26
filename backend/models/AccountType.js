@@ -90,10 +90,23 @@ const loansTypeSchema = new mongoose.Schema({
   },
 });
 
+const customOtherTypeSchema = new mongoose.Schema({
+  accountName: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  currentBalance: {
+    type: Number,
+    required: true,
+  },
+});
+
 AccountType.discriminator('Savings', savingsTypeSchema);
 AccountType.discriminator('Wallet', walletTypeSchema);
 AccountType.discriminator('Investments', investmentsTypeSchema);
 AccountType.discriminator('Credit', creditTypeSchema);
 AccountType.discriminator('Loans', loansTypeSchema);
+AccountType.discriminator('Custom - Other', customOtherTypeSchema);
 
 export default AccountType;

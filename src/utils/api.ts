@@ -339,6 +339,16 @@ export const accountsApi = {
   getProviders: async (): Promise<ApiResponse<{ providersByType: ProvidersByType }>> => {
     return apiRequest<{ providersByType: ProvidersByType }>('/accounts/providers');
   },
+  createProvider: async (data: {
+    type: string;
+    providerLabel: string;
+    accent?: string;
+  }): Promise<ApiResponse<{ provider: { id: string; label: string; accent: string } }>> => {
+    return apiRequest<{ provider: { id: string; label: string; accent: string } }>('/accounts/providers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 export const transactionsApi = {
