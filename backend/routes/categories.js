@@ -1,6 +1,7 @@
 import express from 'express';
 import Category from '../models/Category.js';
 import { requireAuth } from '../middleware/auth.js';
+import { sendErrorResponse } from '../utils/errorHandler.js';
 
 const router = express.Router();
 
@@ -15,8 +16,12 @@ router.get('/', requireAuth, async (req, res) => {
       }),
     });
   } catch (error) {
-    console.error('Get categories error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get categories', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get categories error',
+      error,
+      message: 'Failed to get categories',
+    });
   }
 });
 

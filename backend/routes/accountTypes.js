@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import AccountType from '../models/AccountType.js';
 import { requireAuth } from '../middleware/auth.js';
+import { sendErrorResponse } from '../utils/errorHandler.js';
 
 const router = express.Router();
 
@@ -18,8 +19,12 @@ router.get('/', requireAuth, async (req, res) => {
       }),
     });
   } catch (error) {
-    console.error('Get account types error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get account types', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get account types error',
+      error,
+      message: 'Failed to get account types',
+    });
   }
 });
 
@@ -42,8 +47,12 @@ router.get('/:id', requireAuth, async (req, res) => {
       accountType: { id: _id, ...rest },
     });
   } catch (error) {
-    console.error('Get account type error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get account type', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get account type error',
+      error,
+      message: 'Failed to get account type',
+    });
   }
 });
 

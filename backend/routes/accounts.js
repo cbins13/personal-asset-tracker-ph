@@ -7,6 +7,7 @@ import CustomProvider from '../models/CustomProvider.js';
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
+import { sendErrorResponse, sanitizeErrorMessage } from '../utils/errorHandler.js';
 
 const router = express.Router();
 
@@ -116,8 +117,12 @@ router.get('/providers', requireAuth, async (req, res) => {
 
     res.json({ success: true, providersByType });
   } catch (error) {
-    console.error('Get account providers error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get providers', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get account providers error',
+      error,
+      message: 'Failed to get providers',
+    });
   }
 });
 
@@ -131,9 +136,12 @@ router.post('/providers', requireAuth, async (req, res) => {
 
     if (requestedType !== 'Custom') {
       const isAllowedType = await isAccountTypeAllowed(requestedType);
-      if (!isAllowedType) {
-        return res.status(400).json({ success: false, error: `Account type "${requestedType}" is not supported` });
-      }
+    if (!isAllowedType) {
+      return res.status(400).json({
+        success: false,
+        error: sanitizeErrorMessage(`Account type "${requestedType}" is not supported`),
+      });
+    }
     }
 
     const type = requestedType === 'Wallet' ? 'Custom' : requestedType;
@@ -171,8 +179,12 @@ router.post('/providers', requireAuth, async (req, res) => {
       provider: { id: provider.providerId, label: provider.providerLabel, accent: provider.accent },
     });
   } catch (error) {
-    console.error('Create provider error:', error);
-    res.status(500).json({ success: false, error: 'Failed to create provider', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Create provider error',
+      error,
+      message: 'Failed to create provider',
+    });
   }
 });
 
@@ -209,8 +221,12 @@ router.get('/', requireAuth, async (req, res) => {
       }),
     });
   } catch (error) {
-    console.error('Get accounts error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get accounts', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get accounts error',
+      error,
+      message: 'Failed to get accounts',
+    });
   }
 });
 
@@ -236,7 +252,10 @@ router.post('/', requireAuth, async (req, res) => {
     const isAllowedType = await isAccountTypeAllowed(type);
     if (!isAllowedType) {
       await session.abortTransaction();
-      return res.status(400).json({ success: false, error: `Account type "${type}" is not supported` });
+      return res.status(400).json({
+        success: false,
+        error: sanitizeErrorMessage(`Account type "${type}" is not supported`),
+      });
     }
 
     // Store the initial balance value before creating account with 0
@@ -299,8 +318,12 @@ router.post('/', requireAuth, async (req, res) => {
     });
   } catch (error) {
     await session.abortTransaction();
-    console.error('Create account error:', error);
-    res.status(500).json({ success: false, error: 'Failed to create account', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Create account error',
+      error,
+      message: 'Failed to create account',
+    });
   } finally {
     session.endSession();
   }
@@ -330,8 +353,12 @@ router.get('/:id', requireAuth, async (req, res) => {
       account: { id: _id, ...rest },
     });
   } catch (error) {
-    console.error('Get account error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get account', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get account error',
+      error,
+      message: 'Failed to get account',
+    });
   }
 });
 
@@ -361,7 +388,10 @@ router.put('/:id', requireAuth, async (req, res) => {
     if (type !== undefined) {
       const isAllowedType = await isAccountTypeAllowed(type);
       if (!isAllowedType) {
-        return res.status(400).json({ success: false, error: `Account type "${type}" is not supported` });
+        return res.status(400).json({
+          success: false,
+          error: sanitizeErrorMessage(`Account type "${type}" is not supported`),
+        });
       }
       account.type = type;
     }
@@ -392,8 +422,12 @@ router.put('/:id', requireAuth, async (req, res) => {
       account: { id: _id, ...rest },
     });
   } catch (error) {
-    console.error('Update account error:', error);
-    res.status(500).json({ success: false, error: 'Failed to update account', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Update account error',
+      error,
+      message: 'Failed to update account',
+    });
   }
 });
 
@@ -430,10 +464,11 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
     if (transactionCount > 0) {
       await session.abortTransaction();
+      const details = `This account has ${transactionCount} transaction(s). Delete or reassign all transactions before deleting the account.`;
       return res.status(400).json({
         success: false,
-        error: 'Cannot delete account with existing transactions',
-        details: `This account has ${transactionCount} transaction(s). Delete or reassign all transactions before deleting the account.`,
+        error: sanitizeErrorMessage('Cannot delete account with existing transactions'),
+        ...(process.env.NODE_ENV === 'production' ? {} : { details }),
       });
     }
 
@@ -448,8 +483,12 @@ router.delete('/:id', requireAuth, async (req, res) => {
     res.json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {
     await session.abortTransaction();
-    console.error('Delete account error:', error);
-    res.status(500).json({ success: false, error: 'Failed to delete account', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Delete account error',
+      error,
+      message: 'Failed to delete account',
+    });
   } finally {
     session.endSession();
   }

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Transaction from '../models/Transaction.js';
 import Account from '../models/Account.js';
 import { requireAuth } from '../middleware/auth.js';
+import { sendErrorResponse } from '../utils/errorHandler.js';
 
 const router = express.Router();
 
@@ -88,8 +89,12 @@ router.get('/', requireAuth, async (req, res) => {
       }),
     });
   } catch (error) {
-    console.error('Get transactions error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get transactions', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get transactions error',
+      error,
+      message: 'Failed to get transactions',
+    });
   }
 });
 
@@ -221,8 +226,12 @@ router.post('/', requireAuth, async (req, res) => {
     res.status(201).json({ success: true, transaction: { id: _id, ...rest } });
   } catch (error) {
     await session.abortTransaction();
-    console.error('Create transaction error:', error);
-    res.status(500).json({ success: false, error: 'Failed to create transaction', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Create transaction error',
+      error,
+      message: 'Failed to create transaction',
+    });
   } finally {
     session.endSession();
   }
@@ -374,8 +383,12 @@ router.put('/:id', requireAuth, async (req, res) => {
     res.json({ success: true, transaction: { id: _id, ...rest } });
   } catch (error) {
     await session.abortTransaction();
-    console.error('Update transaction error:', error);
-    res.status(500).json({ success: false, error: 'Failed to update transaction', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Update transaction error',
+      error,
+      message: 'Failed to update transaction',
+    });
   } finally {
     session.endSession();
   }
@@ -421,8 +434,12 @@ router.delete('/:id', requireAuth, async (req, res) => {
     res.json({ success: true, message: 'Transaction deleted successfully' });
   } catch (error) {
     await session.abortTransaction();
-    console.error('Delete transaction error:', error);
-    res.status(500).json({ success: false, error: 'Failed to delete transaction', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Delete transaction error',
+      error,
+      message: 'Failed to delete transaction',
+    });
   } finally {
     session.endSession();
   }

@@ -6,6 +6,7 @@ import Role from '../models/Role.js';
 import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { sendErrorResponse, sanitizeErrorMessage } from '../utils/errorHandler.js';
 
 const router = express.Router();
 
@@ -115,8 +116,12 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Admin list users error:', error);
-    res.status(500).json({ success: false, error: 'Failed to list users', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Admin list users error',
+      error,
+      message: 'Failed to list users',
+    });
   }
 });
 
@@ -166,8 +171,12 @@ router.get('/profile', requireAuth, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get profile', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get profile error',
+      error,
+      message: 'Failed to get profile',
+    });
   }
 });
 
@@ -203,8 +212,12 @@ router.put('/profile', requireAuth, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ success: false, error: 'Failed to update profile', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Update profile error',
+      error,
+      message: 'Failed to update profile',
+    });
   }
 });
 
@@ -242,11 +255,11 @@ router.delete('/me', requireAuth, async (req, res) => {
       });
     });
   } catch (error) {
-    console.error('Delete account error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to delete account',
-      details: error.message,
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Delete account error',
+      error,
+      message: 'Failed to delete account',
     });
   }
 });
@@ -289,8 +302,12 @@ router.get('/:id/permissions', requireAuth, requireAdmin, async (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Get user permissions error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get user permissions', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get user permissions error',
+      error,
+      message: 'Failed to get user permissions',
+    });
   }
 });
 
@@ -341,10 +358,11 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
         const invalidRoles = roles.filter((role) => !existingRoleNames.includes(role));
 
         if (invalidRoles.length > 0) {
+          const details = 'Roles must exist in the Roles collection and be active';
           return res.status(400).json({
             success: false,
-            error: `Invalid or inactive roles: ${invalidRoles.join(', ')}`,
-            details: 'Roles must exist in the Roles collection and be active',
+            error: sanitizeErrorMessage(`Invalid or inactive roles: ${invalidRoles.join(', ')}`),
+            ...(process.env.NODE_ENV === 'production' ? {} : { details }),
           });
         }
       }
@@ -386,10 +404,11 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
         );
 
         if (invalidPermissions.length > 0) {
+          const details = 'Permissions must exist in the Permissions collection and be active';
           return res.status(400).json({
             success: false,
-            error: `Invalid or inactive permissions: ${invalidPermissions.join(', ')}`,
-            details: 'Permissions must exist in the Permissions collection and be active',
+            error: sanitizeErrorMessage(`Invalid or inactive permissions: ${invalidPermissions.join(', ')}`),
+            ...(process.env.NODE_ENV === 'production' ? {} : { details }),
           });
         }
       }
@@ -443,11 +462,11 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Update user error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update user',
-      details: error.message,
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Update user error',
+      error,
+      message: 'Failed to update user',
     });
   }
 });

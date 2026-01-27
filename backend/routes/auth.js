@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import { hashPassword, comparePassword, validatePassword } from '../utils/password.js';
 import { requireAuth } from '../middleware/auth.js';
+import { sendErrorResponse } from '../utils/errorHandler.js';
 
 const router = express.Router();
 
@@ -166,10 +167,11 @@ router.post('/google', async (req, res) => {
         details: 'Invalid Google Client ID configuration. Please check your environment variables.' 
       });
     }
-    res.status(500).json({ 
-      success: false,
-      error: 'Authentication failed', 
-      details: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred during authentication' 
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Google auth error',
+      error,
+      message: 'Authentication failed',
     });
   }
 });
@@ -237,8 +239,12 @@ router.post('/register', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ success: false, error: 'Registration failed', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Registration error',
+      error,
+      message: 'Registration failed',
+    });
   }
 });
 
@@ -296,8 +302,12 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ success: false, error: 'Login failed', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Login error',
+      error,
+      message: 'Login failed',
+    });
   }
 });
 
@@ -351,8 +361,12 @@ router.post('/change-password', requireAuth, async (req, res) => {
 
     return res.json({ success: true });
   } catch (error) {
-    console.error('Change password error:', error);
-    return res.status(500).json({ success: false, error: 'Failed to change password', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Change password error',
+      error,
+      message: 'Failed to change password',
+    });
   }
 });
 
@@ -384,8 +398,12 @@ router.get('/me', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get user', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get user error',
+      error,
+      message: 'Failed to get user',
+    });
   }
 });
 

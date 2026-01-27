@@ -1,6 +1,7 @@
 import express from 'express';
 import Permission from '../models/Permission.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { sendErrorResponse, sanitizeErrorMessage } from '../utils/errorHandler.js';
 
 const router = express.Router();
 
@@ -35,8 +36,12 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Get permissions error:', error);
-    res.status(500).json({ error: 'Failed to get permissions', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get permissions error',
+      error,
+      message: 'Failed to get permissions',
+    });
   }
 });
 
@@ -46,7 +51,7 @@ router.get('/:id', requireAuth, requireAdmin, async (req, res) => {
     const permission = await Permission.findById(req.params.id);
 
     if (!permission) {
-      return res.status(404).json({ error: 'Permission not found' });
+      return res.status(404).json({ success: false, error: 'Permission not found' });
     }
 
     res.json({
@@ -64,8 +69,12 @@ router.get('/:id', requireAuth, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get permission error:', error);
-    res.status(500).json({ error: 'Failed to get permission', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get permission error',
+      error,
+      message: 'Failed to get permission',
+    });
   }
 });
 
@@ -75,12 +84,13 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     const { name, description, category } = req.body;
 
     if (!name || !description) {
-      return res.status(400).json({ error: 'Name and description are required' });
+      return res.status(400).json({ success: false, error: 'Name and description are required' });
     }
 
     // Validate name format (resource:action)
     if (!/^[a-z0-9]+:[a-z0-9]+$/.test(name)) {
       return res.status(400).json({
+        success: false,
         error: 'Permission name must be in format "resource:action" (e.g., users:read)',
       });
     }
@@ -88,7 +98,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     // Check if permission already exists
     const existing = await Permission.findOne({ name: name.toLowerCase() });
     if (existing) {
-      return res.status(400).json({ error: 'Permission with this name already exists' });
+      return res.status(400).json({ success: false, error: 'Permission with this name already exists' });
     }
 
     const permission = new Permission({
@@ -114,11 +124,15 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Create permission error:', error);
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({ success: false, error: sanitizeErrorMessage(error.message) });
     }
-    res.status(500).json({ error: 'Failed to create permission', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Create permission error',
+      error,
+      message: 'Failed to create permission',
+    });
   }
 });
 
@@ -129,13 +143,14 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     const permission = await Permission.findById(req.params.id);
 
     if (!permission) {
-      return res.status(404).json({ error: 'Permission not found' });
+      return res.status(404).json({ success: false, error: 'Permission not found' });
     }
 
     // If name is being updated, validate format
     if (name && name !== permission.name) {
       if (!/^[a-z0-9]+:[a-z0-9]+$/.test(name)) {
         return res.status(400).json({
+          success: false,
           error: 'Permission name must be in format "resource:action" (e.g., users:read)',
         });
       }
@@ -143,7 +158,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       // Check if new name already exists
       const existing = await Permission.findOne({ name: name.toLowerCase() });
       if (existing) {
-        return res.status(400).json({ error: 'Permission with this name already exists' });
+        return res.status(400).json({ success: false, error: 'Permission with this name already exists' });
       }
 
       permission.name = name.toLowerCase();
@@ -170,11 +185,15 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Update permission error:', error);
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({ success: false, error: sanitizeErrorMessage(error.message) });
     }
-    res.status(500).json({ error: 'Failed to update permission', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Update permission error',
+      error,
+      message: 'Failed to update permission',
+    });
   }
 });
 
@@ -184,7 +203,7 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     const permission = await Permission.findById(req.params.id);
 
     if (!permission) {
-      return res.status(404).json({ error: 'Permission not found' });
+      return res.status(404).json({ success: false, error: 'Permission not found' });
     }
 
     // Check if permission is being used by any users
@@ -194,8 +213,11 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     });
 
     if (usersWithPermission > 0) {
+      const details = `Cannot delete permission. It is currently assigned to ${usersWithPermission} user(s). Remove it from all users first.`;
       return res.status(400).json({
-        error: `Cannot delete permission. It is currently assigned to ${usersWithPermission} user(s). Remove it from all users first.`,
+        success: false,
+        error: sanitizeErrorMessage(details),
+        ...(process.env.NODE_ENV === 'production' ? {} : { details }),
       });
     }
 
@@ -206,8 +228,12 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
       message: 'Permission deleted successfully',
     });
   } catch (error) {
-    console.error('Delete permission error:', error);
-    res.status(500).json({ error: 'Failed to delete permission', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Delete permission error',
+      error,
+      message: 'Failed to delete permission',
+    });
   }
 });
 

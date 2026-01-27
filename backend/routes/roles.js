@@ -3,6 +3,7 @@ import Role from '../models/Role.js';
 import Permission from '../models/Permission.js';
 import User from '../models/User.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { sendErrorResponse, sanitizeErrorMessage } from '../utils/errorHandler.js';
 
 const router = express.Router();
 
@@ -57,8 +58,12 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Get roles error:', error);
-    res.status(500).json({ error: 'Failed to get roles', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get roles error',
+      error,
+      message: 'Failed to get roles',
+    });
   }
 });
 
@@ -68,7 +73,7 @@ router.get('/:id', requireAuth, requireAdmin, async (req, res) => {
     const role = await Role.findById(req.params.id);
 
     if (!role) {
-      return res.status(404).json({ error: 'Role not found' });
+      return res.status(404).json({ success: false, error: 'Role not found' });
     }
 
     // Get permission details
@@ -98,8 +103,12 @@ router.get('/:id', requireAuth, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get role error:', error);
-    res.status(500).json({ error: 'Failed to get role', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get role error',
+      error,
+      message: 'Failed to get role',
+    });
   }
 });
 
@@ -110,6 +119,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
 
     if (!name || !displayName || !description) {
       return res.status(400).json({
+        success: false,
         error: 'Name, displayName, and description are required',
       });
     }
@@ -117,7 +127,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     // Check if role already exists
     const existing = await Role.findOne({ name: name.toLowerCase() });
     if (existing) {
-      return res.status(400).json({ error: 'Role with this name already exists' });
+      return res.status(400).json({ success: false, error: 'Role with this name already exists' });
     }
 
     // Validate permissions exist
@@ -133,8 +143,11 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       );
 
       if (invalidPermissions.length > 0) {
+        const details = `Invalid or inactive permissions: ${invalidPermissions.join(', ')}`;
         return res.status(400).json({
-          error: `Invalid or inactive permissions: ${invalidPermissions.join(', ')}`,
+          success: false,
+          error: sanitizeErrorMessage(details),
+          ...(process.env.NODE_ENV === 'production' ? {} : { details }),
         });
       }
     }
@@ -172,14 +185,18 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Create role error:', error);
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({ success: false, error: sanitizeErrorMessage(error.message) });
     }
     if (error.code === 11000) {
-      return res.status(400).json({ error: 'Role with this name already exists' });
+      return res.status(400).json({ success: false, error: 'Role with this name already exists' });
     }
-    res.status(500).json({ error: 'Failed to create role', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Create role error',
+      error,
+      message: 'Failed to create role',
+    });
   }
 });
 
@@ -190,12 +207,13 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     const role = await Role.findById(req.params.id);
 
     if (!role) {
-      return res.status(404).json({ error: 'Role not found' });
+      return res.status(404).json({ success: false, error: 'Role not found' });
     }
 
     // Prevent modification of system roles (except isActive)
     if (role.isSystemRole && (name || displayName || description || permissions)) {
       return res.status(400).json({
+        success: false,
         error: 'Cannot modify system role properties. Only isActive can be changed.',
       });
     }
@@ -204,7 +222,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     if (name && name.toLowerCase() !== role.name) {
       const existing = await Role.findOne({ name: name.toLowerCase() });
       if (existing) {
-        return res.status(400).json({ error: 'Role with this name already exists' });
+        return res.status(400).json({ success: false, error: 'Role with this name already exists' });
       }
       role.name = name.toLowerCase();
     }
@@ -216,7 +234,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     // Validate and update permissions
     if (permissions !== undefined) {
       if (!Array.isArray(permissions)) {
-        return res.status(400).json({ error: 'Permissions must be an array' });
+        return res.status(400).json({ success: false, error: 'Permissions must be an array' });
       }
 
       if (permissions.length > 0) {
@@ -231,8 +249,11 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
         );
 
         if (invalidPermissions.length > 0) {
+          const details = `Invalid or inactive permissions: ${invalidPermissions.join(', ')}`;
           return res.status(400).json({
-            error: `Invalid or inactive permissions: ${invalidPermissions.join(', ')}`,
+            success: false,
+            error: sanitizeErrorMessage(details),
+            ...(process.env.NODE_ENV === 'production' ? {} : { details }),
           });
         }
       }
@@ -266,11 +287,15 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Update role error:', error);
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({ success: false, error: sanitizeErrorMessage(error.message) });
     }
-    res.status(500).json({ error: 'Failed to update role', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Update role error',
+      error,
+      message: 'Failed to update role',
+    });
   }
 });
 
@@ -280,12 +305,13 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     const role = await Role.findById(req.params.id);
 
     if (!role) {
-      return res.status(404).json({ error: 'Role not found' });
+      return res.status(404).json({ success: false, error: 'Role not found' });
     }
 
     // Prevent deletion of system roles
     if (role.isSystemRole) {
       return res.status(400).json({
+        success: false,
         error: 'Cannot delete system roles',
       });
     }
@@ -296,8 +322,11 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     });
 
     if (usersWithRole > 0) {
+      const details = `Cannot delete role. It is currently assigned to ${usersWithRole} user(s). Remove it from all users first.`;
       return res.status(400).json({
-        error: `Cannot delete role. It is currently assigned to ${usersWithRole} user(s). Remove it from all users first.`,
+        success: false,
+        error: sanitizeErrorMessage(details),
+        ...(process.env.NODE_ENV === 'production' ? {} : { details }),
       });
     }
 
@@ -308,8 +337,12 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
       message: 'Role deleted successfully',
     });
   } catch (error) {
-    console.error('Delete role error:', error);
-    res.status(500).json({ error: 'Failed to delete role', details: error.message });
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Delete role error',
+      error,
+      message: 'Failed to delete role',
+    });
   }
 });
 
