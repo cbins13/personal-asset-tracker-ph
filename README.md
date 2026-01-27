@@ -11,6 +11,18 @@ Currently, two official plugins are available:
 
 The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
+## Vercel Deploy (Single Project)
+
+This repo is set up to deploy the Vite frontend and Express API as Vercel Serverless Functions in a single project.
+
+1. Import the repo into Vercel and select the Vite framework preset.
+2. Add environment variables in Vercel:
+   - Backend: `MONGODB_URI`, `SESSION_SECRET`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `FRONTEND_URL`
+   - Frontend: `VITE_GOOGLE_CLIENT_ID`, `VITE_API_URL=/api`
+3. Deploy and verify:
+   - `https://<your-domain>.vercel.app/api/health` returns 200
+   - The UI loads and can call the API
+
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:

@@ -1,0 +1,414 @@
+import express from 'express';
+import User from '../models/User.js';
+import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
+import { hashPassword, comparePassword, validatePassword } from '../utils/password.js';
+import { requireAuth } from '../middleware/auth.js';
+import { sendErrorResponse } from '../utils/errorHandler.js';
+import { sanitizeText } from '../utils/sanitize.js';
+
+const router = express.Router();
+
+const MAX_PASSWORD_LENGTH = 128;
+const MALICIOUS_PATTERNS = [/<|>/, /\bscript\b/i, /javascript:/i, /\0/];
+
+function isMaliciousPassword(str) {
+  if (typeof str !== 'string') return true;
+  const s = str.trim();
+  if (s.length > MAX_PASSWORD_LENGTH) return true;
+  return MALICIOUS_PATTERNS.some((re) => re.test(s));
+}
+// OAuth2Client is created dynamically with the Client ID from the request
+
+// Generate JWT token
+const generateToken = (userId) => {
+  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+    expiresIn: '7d',
+  });
+};
+
+const getAuthCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+});
+
+const getAuthCookieClearOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+});
+
+// Google OAuth verification and login
+router.post('/google', async (req, res) => {
+  try {
+    const { credential, clientId } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({ success: false, error: 'Credential is required' });
+    }
+
+    // Use clientId from request if provided, otherwise use env variable
+    // This ensures the backend uses the same Client ID as the frontend
+    const googleClientId = clientId || process.env.GOOGLE_CLIENT_ID;
+    
+    if (!googleClientId) {
+      return res.status(500).json({ success: false, error: 'Google Client ID not configured' });
+    }
+
+    // Create a new OAuth2Client with the correct Client ID
+    const oauthClient = new OAuth2Client(googleClientId);
+
+    // Verify the Google token
+    // Accept multiple possible client IDs (frontend client ID and backend env client ID)
+    const possibleClientIds = [
+      googleClientId,
+      ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_ID !== googleClientId 
+        ? [process.env.GOOGLE_CLIENT_ID] 
+        : [])
+    ];
+
+    let ticket;
+    let lastError;
+    
+    // Try verifying with each possible client ID
+    for (const audienceId of possibleClientIds) {
+      try {
+        ticket = await oauthClient.verifyIdToken({
+          idToken: credential,
+          audience: audienceId,
+        });
+        // Success - break out of loop
+        break;
+      } catch (error) {
+        lastError = error;
+        // Continue to next client ID
+        continue;
+      }
+    }
+
+    // If all attempts failed, throw the last error
+    if (!ticket) {
+      console.error('Google token verification failed:', lastError?.message);
+      return res.status(401).json({ 
+        success: false,
+        error: 'Invalid Google token', 
+        details: 'Token verification failed. Please try logging in again.' 
+      });
+    }
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name, picture } = payload;
+    const sanitizedName = name ? sanitizeText(name).trim() : undefined;
+    const sanitizedPicture = picture ? sanitizeText(picture).trim() : undefined;
+
+    // Find or create user
+    let user = await User.findOne({ googleId });
+
+    if (!user) {
+      // Check if user exists with this email
+      user = await User.findOne({ email });
+      
+      if (user) {
+        // Link Google account to existing user
+        user.googleId = googleId;
+        user.picture = sanitizedPicture;
+        user.provider = 'google';
+      } else {
+        // Create new user
+        user = new User({
+          googleId,
+          email,
+          name: sanitizedName,
+          picture: sanitizedPicture,
+          provider: 'google',
+        });
+      }
+    } else {
+      // Update last login and picture if changed
+      user.lastLogin = new Date();
+      if (sanitizedPicture) user.picture = sanitizedPicture;
+    }
+
+    await user.save();
+
+    // Create session - ensure session is saved
+    req.session.userId = user._id.toString();
+    req.session.userEmail = user.email;
+    
+    // Explicitly save session to ensure it's persisted
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+      }
+    });
+
+    // Generate JWT token
+    const token = generateToken(user._id);
+
+    res.cookie('authToken', token, getAuthCookieOptions());
+
+    // Return user data
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        provider: user.provider,
+      },
+    });
+  } catch (error) {
+    console.error('Google auth error:', error);
+    // Provide more helpful error messages
+    if (error.message && error.message.includes('audience')) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Authentication failed', 
+        details: 'Invalid Google Client ID configuration. Please check your environment variables.' 
+      });
+    }
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Google auth error',
+      error,
+      message: 'Authentication failed',
+    });
+  }
+});
+
+// Local email/password registration
+router.post('/register', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    const sanitizedName = name ? sanitizeText(name).trim() : '';
+
+    if (!email || !password || !sanitizedName) {
+      return res.status(400).json({ success: false, error: 'Email, password, and name are required' });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, error: 'User already exists' });
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ success: false, error: passwordValidation.message });
+    }
+
+    // Hash password with bcrypt
+    const hashedPassword = await hashPassword(password);
+
+    // Create new user with hashed password
+    const user = new User({
+      email,
+      password: hashedPassword,
+      name: sanitizedName,
+      provider: 'local',
+    });
+
+    await user.save();
+
+    // Create session
+    req.session.userId = user._id.toString();
+    req.session.userEmail = user.email;
+    
+    // Explicitly save session to ensure it's persisted
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    // Generate JWT token
+    const token = generateToken(user._id);
+
+    res.cookie('authToken', token, getAuthCookieOptions());
+
+    res.status(201).json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        provider: user.provider,
+        roles: user.roles,
+        permissions: user.permissions,
+      },
+    });
+  } catch (error) {
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Registration error',
+      error,
+      message: 'Registration failed',
+    });
+  }
+});
+
+// Local email/password login
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: 'Email and password are required' });
+    }
+
+    const user = await User.findOne({ email, provider: 'local' });
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
+
+    // Verify password with bcrypt
+    const isPasswordValid = await comparePassword(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Create session
+    req.session.userId = user._id.toString();
+    req.session.userEmail = user.email;
+    
+    // Explicitly save session to ensure it's persisted
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    // Generate JWT token
+    const token = generateToken(user._id);
+
+    res.cookie('authToken', token, getAuthCookieOptions());
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        provider: user.provider,
+        roles: user.roles,
+        permissions: user.permissions,
+      },
+    });
+  } catch (error) {
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Login error',
+      error,
+      message: 'Login failed',
+    });
+  }
+});
+
+// Logout
+router.post('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ success: false, error: 'Logout failed' });
+    }
+    res.clearCookie('connect.sid');
+    res.clearCookie('authToken', getAuthCookieClearOptions());
+    res.json({ success: true, message: 'Logged out successfully' });
+  });
+});
+
+// Change password (local users only)
+router.post('/change-password', requireAuth, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (typeof oldPassword !== 'string' || typeof newPassword !== 'string') {
+      return res.status(400).json({ success: false, error: 'Old password and new password are required' });
+    }
+
+    const trimmedOld = oldPassword.trim();
+    const trimmedNew = newPassword.trim();
+    if (!trimmedOld || !trimmedNew) {
+      return res.status(400).json({ success: false, error: 'Old password and new password are required' });
+    }
+
+    if (isMaliciousPassword(oldPassword) || isMaliciousPassword(newPassword)) {
+      return res.status(400).json({ success: false, error: 'Invalid characters in password' });
+    }
+
+    const user = await User.findById(req.session.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    if (user.provider !== 'local') {
+      return res.status(400).json({ success: false, error: 'Change password is only available for email/password accounts' });
+    }
+
+    const valid = await comparePassword(trimmedOld, user.password);
+    if (!valid) {
+      return res.status(401).json({ success: false, error: 'Current password is incorrect' });
+    }
+
+    user.password = await hashPassword(trimmedNew);
+    await user.save();
+
+    return res.json({ success: true });
+  } catch (error) {
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Change password error',
+      error,
+      message: 'Failed to change password',
+    });
+  }
+});
+
+// Get current user (from session)
+router.get('/me', async (req, res) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+
+    const user = await User.findById(req.session.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        provider: user.provider,
+        preferences: user.preferences,
+        createdAt: user.createdAt,
+        lastLogin: user.lastLogin,
+        roles: user.roles,
+        permissions: user.permissions,
+      },
+    });
+  } catch (error) {
+    return sendErrorResponse(res, {
+      status: 500,
+      context: 'Get user error',
+      error,
+      message: 'Failed to get user',
+    });
+  }
+});
+
+export default router;
