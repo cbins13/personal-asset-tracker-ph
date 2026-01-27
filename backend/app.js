@@ -80,6 +80,7 @@ app.use('/api/permissions', permissionRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/account-types', accountTypeRoutes);
+app.use('/api/accountTypes', accountTypeRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/categories', categoryRoutes);
 

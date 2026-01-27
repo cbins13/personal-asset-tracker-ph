@@ -5,6 +5,7 @@ import { ErrorType } from "../utils/errorMessages";
 import logoSmall from "../assets/savvi_logo.png";
 import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 import Sidebar from "./Sidebar";
+import { useAccountTypes } from "../hooks/useAccountTypes";
 import {
   accountsApi,
   categoriesApi,
@@ -19,11 +20,8 @@ import AddTransactionModal, {
   type CategoryOption,
 } from "./transactions/AddTransactionModal";
 
-const accountFilters = ["All", "Wallet", "Savings", "Credit", "Loans", "Investments", "Custom - Other"];
-const addAccountTabs = ["Custom", "Wallet", "Savings", "Credit", "Loans", "Investments"];
-
 const accountProvidersFallback: Record<string, { id: string; label: string; accent: string }[]> = {
-  Custom: [],
+  "Custom - Other": [],
   Wallet: [
     { id: "cash", label: "Cash on Hand", accent: "bg-green-500" },
     { id: "beep", label: "Beep - Wallet", accent: "bg-blue-900" },
@@ -81,6 +79,7 @@ const fallbackCategories: CategoryOption[] = [
 export default function DashboardPage() {
   const navigate = useNavigate();
   const auth = useAuth();
+  const { accountTypes, isLoading: isLoadingAccountTypes, error: accountTypesError } = useAccountTypes();
   const user = auth.user;
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState("All");
@@ -88,7 +87,7 @@ export default function DashboardPage() {
   const [isNetWorthHidden, setIsNetWorthHidden] = useState(false);
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [addAccountStep, setAddAccountStep] = useState<"selectProvider" | "form">("selectProvider");
-  const [selectedAddType, setSelectedAddType] = useState("Custom");
+  const [selectedAddType, setSelectedAddType] = useState("");
   const [selectedProvider, setSelectedProvider] = useState<{ id: string; label: string; accent: string } | null>(
     null
   );
@@ -120,6 +119,27 @@ export default function DashboardPage() {
   const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
   const [isDeletingTransactionId, setIsDeletingTransactionId] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryOption[]>(fallbackCategories);
+
+  const customAccountType = useMemo(
+    () => accountTypes.find((type) => type.type === "Custom - Other"),
+    [accountTypes]
+  );
+  const defaultAddType = useMemo(
+    () => customAccountType?.type || accountTypes[0]?.type || "Custom - Other",
+    [accountTypes, customAccountType]
+  );
+  const accountFilters = useMemo(
+    () => ["All", ...accountTypes.map((type) => type.type)],
+    [accountTypes]
+  );
+  const addAccountTabs = useMemo(
+    () =>
+      accountTypes.map((type) => ({
+        value: type.type,
+        label: type.type === "Custom - Other" ? "Custom" : type.type,
+      })),
+    [accountTypes]
+  );
 
   const selectedAccount = useMemo(
     () => accounts.find((account) => account.id === selectedAccountId) || null,
@@ -222,6 +242,12 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (!selectedAddType && accountTypes.length) {
+      setSelectedAddType(defaultAddType);
+    }
+  }, [accountTypes, defaultAddType, selectedAddType]);
+
+  useEffect(() => {
     fetchTransactions(selectedAccountId || undefined);
   }, [selectedAccountId]);
 
@@ -239,7 +265,7 @@ export default function DashboardPage() {
   const openAddAccount = () => {
     setIsAddAccountOpen(true);
     setAddAccountStep("selectProvider");
-    setSelectedAddType("Custom");
+    setSelectedAddType(defaultAddType);
     setSelectedProvider(null);
     setIsCustomAccount(false);
     setIsCreatingCustomProvider(false);
@@ -304,8 +330,11 @@ export default function DashboardPage() {
   const handleAddAccount = async () => {
     if (!accountName.trim()) return;
     const balanceValue = Number(accountBalance || 0);
-    const effectiveType =
-      isCustomAccount && selectedAddType === "Custom" ? "Custom - Other" : selectedAddType;
+    const effectiveType = selectedAddType;
+    if (accountTypes.length && !accountTypes.some((type) => type.type === effectiveType)) {
+      console.warn(`Unsupported account type selection: ${effectiveType}`);
+      return;
+    }
     const response = await accountsApi.create({
       accountName: accountName.trim(),
       type: effectiveType,
@@ -1089,12 +1118,19 @@ export default function DashboardPage() {
 
             {addAccountStep === "selectProvider" && (
               <div className="px-6 pb-6">
+                {isLoadingAccountTypes ? (
+                  <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">Loading account types...</p>
+                ) : accountTypesError ? (
+                  <p className="mb-3 text-sm text-yellow-700 dark:text-yellow-300">
+                    Using default account types. Some options may be limited.
+                  </p>
+                ) : null}
                 <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-2 flex gap-2 mb-5 overflow-x-auto">
                   {addAccountTabs.map((tab) => (
                     <button
-                      key={tab}
+                      key={tab.value}
                       onClick={() => {
-                        setSelectedAddType(tab);
+                        setSelectedAddType(tab.value);
                         setIsCustomAccount(false);
                         setIsCreatingCustomProvider(false);
                         setCustomProviderLabel("");
@@ -1102,12 +1138,12 @@ export default function DashboardPage() {
                       }}
                       className={[
                         "px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap",
-                        selectedAddType === tab
+                        selectedAddType === tab.value
                           ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
                           : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200",
                       ].join(" ")}
                     >
-                      {tab}
+                      {tab.label}
                     </button>
                   ))}
                 </div>

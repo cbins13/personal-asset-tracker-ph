@@ -307,6 +307,12 @@ export interface Account {
   updatedAt?: string;
 }
 
+export interface AccountType {
+  id: string;
+  type: string;
+  [key: string]: unknown;
+}
+
 export type TransactionKind = 'expense' | 'income' | 'installment' | 'transfer';
 
 export interface Transaction {
@@ -391,6 +397,15 @@ export const accountsApi = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  },
+};
+
+export const accountTypesApi = {
+  getAll: async (): Promise<ApiResponse<{ accountTypes: AccountType[] }>> => {
+    return apiRequest<{ accountTypes: AccountType[] }>('/accountTypes');
+  },
+  getById: async (id: string): Promise<ApiResponse<{ accountType: AccountType }>> => {
+    return apiRequest<{ accountType: AccountType }>(`/accountTypes/${id}`);
   },
 };
 

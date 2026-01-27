@@ -425,6 +425,9 @@ export async function withRetry<T>(
 
 **Issue:** Backend has `/api/accountTypes` endpoint but frontend doesn't use it, causing potential inconsistency.
 
+**Status:** ✅ **COMPLETED** - January 27, 2026  
+**Test Results:** See `improvement-plans/step-4-integrate-accounttypes-api/TEST_RESULTS.md`
+
 **Files to Modify:**
 - `src/utils/api.ts`
 - `src/components/DashboardPage.tsx`
@@ -1645,7 +1648,7 @@ For each step, update the status:
 | 1. Fix ProfilePage Loading | Critical | ✅ Complete | AI Assistant | Jan 26, 2026 | Jan 26, 2026 | All fixes implemented and tested. See TEST_RESULTS.md |
 | 2. Improve Error Messages | High | ✅ Complete | AI Assistant | Jan 26, 2026 | Jan 26, 2026 | Error handling system implemented. All components updated. See TEST_RESULTS.md |
 | 3. Add Retry Mechanisms | High | ✅ Complete | AI Assistant | Jan 26, 2026 | Jan 26, 2026 | Retry logic with exponential backoff implemented. See TEST_RESULTS.md |
-| 4. Integrate AccountTypes API | High | ⏳ Not Started | - | - | - | - |
+| 4. Integrate AccountTypes API | High | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Uses accountTypes hook + fallback |
 | 5. Migrate Router Devtools | Medium | ⏳ Not Started | - | - | - | - |
 | 6. Improve JWT Security | Medium | ⏳ Not Started | - | - | - | - |
 | 7. Sanitize Error Messages | Medium | ⏳ Not Started | - | - | - | - |
@@ -1698,4 +1701,4 @@ For each step, update the status:
 ---
 
 **Last Updated:** January 26, 2026  
-**Status:** In Progress (Steps 1, 2 & 3 Complete)
+**Status:** In Progress (Steps 1-4 Complete)

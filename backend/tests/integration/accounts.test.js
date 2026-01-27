@@ -4,6 +4,7 @@ import app from '../../app.js';
 import Account from '../../models/Account.js';
 import Transaction from '../../models/Transaction.js';
 import AccountType from '../../models/AccountType.js';
+import Provider from '../../models/Provider.js';
 import CustomProvider from '../../models/CustomProvider.js';
 import User from '../../models/User.js';
 import { createTestUser } from '../helpers/auth.js';
@@ -65,6 +66,26 @@ describe('Account Endpoints', () => {
           currentBalance: 0,
         }).save();
       }
+    }
+
+    const walletProvider = await Provider.findOne({ type: 'Wallet', providerId: 'test-wallet' });
+    if (!walletProvider) {
+      await Provider.create({
+        type: 'Wallet',
+        providerId: 'test-wallet',
+        providerLabel: 'Test Wallet',
+        accent: 'bg-blue-500',
+      });
+    }
+
+    const savingsProvider = await Provider.findOne({ type: 'Savings', providerId: 'test-savings' });
+    if (!savingsProvider) {
+      await Provider.create({
+        type: 'Savings',
+        providerId: 'test-savings',
+        providerLabel: 'Test Savings',
+        accent: 'bg-green-500',
+      });
     }
   });
 
