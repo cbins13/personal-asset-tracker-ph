@@ -6,6 +6,7 @@ import { useCategories } from "../../hooks/useCategories";
 import { useTransactions } from "../../hooks/useTransactions";
 import { ErrorType } from "../../utils/errorMessages";
 import { formatCurrency, formatDateTime } from "../../utils/formatters";
+import { sanitizeText } from "../../utils/sanitize";
 import AnimatedContentWrapper from "../../effects/AnimatedContentWrapper";
 import AddTransactionModal, { type AddTransactionPayload } from "./AddTransactionModal";
 
@@ -58,9 +59,9 @@ export default function TransactionsPage() {
     if (getTransactionKind(tx) === "transfer") {
       const fromName = tx.fromAccount?.accountName || tx.fromAccountId || "Source";
       const toName = tx.toAccount?.accountName || tx.toAccountId || "Destination";
-      return `${fromName} → ${toName}`;
+      return sanitizeText(`${fromName} → ${toName}`);
     }
-    return tx.account?.accountName || tx.accountId || "Account";
+    return sanitizeText(tx.account?.accountName || tx.accountId || "Account");
   };
 
   const handleEditTransaction = (tx: Transaction) => {
@@ -186,7 +187,7 @@ export default function TransactionsPage() {
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">{formatDateTime(tx.occurredAt || tx.createdAt)}</p>
                           <p className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
-                            {tx.label || tx.categoryLabel || "Transaction"}
+                            {sanitizeText(tx.label || tx.categoryLabel || "Transaction")}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getAccountLabel(tx)}</p>
                         </div>

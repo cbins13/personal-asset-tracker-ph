@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { categoriesApi, type Category } from "../utils/api";
+import { apiCache } from "../utils/apiCache";
 import { ErrorType } from "../utils/errorMessages";
 
 export type CategoryOption = {
@@ -25,8 +26,6 @@ const fallbackCategories: CategoryOption[] = [
   { id: "utilities", label: "Utilities", emoji: "💡" },
 ];
 
-let cachedCategories: CategoryOption[] | null = null;
-
 type UseCategoriesOptions = {
   enabled?: boolean;
 };
@@ -40,41 +39,51 @@ const mapCategories = (categories: Category[]): CategoryOption[] =>
 
 export function useCategories(options: UseCategoriesOptions = {}) {
   const isEnabled = options.enabled !== false;
+  const cacheKey = "/categories";
   const [categories, setCategories] = useState<CategoryOption[]>(
-    cachedCategories || fallbackCategories
+    fallbackCategories
   );
-  const [isLoading, setIsLoading] = useState(isEnabled && !cachedCategories);
+  const [isLoading, setIsLoading] = useState(isEnabled);
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<ErrorType | undefined>();
   const [canRetry, setCanRetry] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (refreshOptions?: { bypassCache?: boolean; showLoading?: boolean }) => {
     if (!isEnabled) return;
-    setIsLoading(true);
+    const showLoading = refreshOptions?.showLoading !== false;
+    if (refreshOptions?.bypassCache) {
+      apiCache.invalidate(cacheKey);
+    }
+    if (showLoading) {
+      setIsLoading(true);
+    }
     const response = await categoriesApi.list();
 
     if (response.success && response.data?.categories?.length) {
       const mapped = mapCategories(response.data.categories);
-      cachedCategories = mapped;
       setCategories(mapped);
       setError(null);
       setErrorType(undefined);
       setCanRetry(false);
     } else {
-      setCategories(cachedCategories || fallbackCategories);
+      setCategories(fallbackCategories);
       setError(response.error || "Failed to load categories.");
       setErrorType(response.errorType);
       setCanRetry(response.canRetry || false);
     }
 
-    setIsLoading(false);
-  }, [isEnabled]);
+    if (showLoading) {
+      setIsLoading(false);
+    }
+  }, [cacheKey, isEnabled]);
 
   useEffect(() => {
     if (!isEnabled) return;
-    if (cachedCategories) {
-      setCategories(cachedCategories);
+    const cached = apiCache.get<{ categories: Category[] }>(cacheKey);
+    if (cached?.categories) {
+      setCategories(mapCategories(cached.categories));
       setIsLoading(false);
+      refresh({ bypassCache: true, showLoading: false });
       return;
     }
     refresh();

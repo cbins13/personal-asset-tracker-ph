@@ -4,6 +4,7 @@ import Permission from '../models/Permission.js';
 import User from '../models/User.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { sendErrorResponse, sanitizeErrorMessage } from '../utils/errorHandler.js';
+import { sanitizeText } from '../utils/sanitize.js';
 
 const router = express.Router();
 
@@ -116,8 +117,11 @@ router.get('/:id', requireAuth, requireAdmin, async (req, res) => {
 router.post('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name, displayName, description, permissions } = req.body;
+    const sanitizedName = name ? sanitizeText(name).trim().toLowerCase() : '';
+    const sanitizedDisplayName = displayName ? sanitizeText(displayName).trim() : '';
+    const sanitizedDescription = description ? sanitizeText(description).trim() : '';
 
-    if (!name || !displayName || !description) {
+    if (!sanitizedName || !sanitizedDisplayName || !sanitizedDescription) {
       return res.status(400).json({
         success: false,
         error: 'Name, displayName, and description are required',
@@ -125,7 +129,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     }
 
     // Check if role already exists
-    const existing = await Role.findOne({ name: name.toLowerCase() });
+    const existing = await Role.findOne({ name: sanitizedName });
     if (existing) {
       return res.status(400).json({ success: false, error: 'Role with this name already exists' });
     }
@@ -153,9 +157,9 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     }
 
     const role = new Role({
-      name: name.toLowerCase(),
-      displayName,
-      description,
+      name: sanitizedName,
+      displayName: sanitizedDisplayName,
+      description: sanitizedDescription,
       permissions: permissions || [],
     });
 
@@ -204,6 +208,9 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
 router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name, displayName, description, permissions, isActive } = req.body;
+    const sanitizedName = name ? sanitizeText(name).trim().toLowerCase() : undefined;
+    const sanitizedDisplayName = displayName !== undefined ? sanitizeText(displayName).trim() : undefined;
+    const sanitizedDescription = description !== undefined ? sanitizeText(description).trim() : undefined;
     const role = await Role.findById(req.params.id);
 
     if (!role) {
@@ -211,7 +218,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     }
 
     // Prevent modification of system roles (except isActive)
-    if (role.isSystemRole && (name || displayName || description || permissions)) {
+    if (role.isSystemRole && (sanitizedName || sanitizedDisplayName || sanitizedDescription || permissions)) {
       return res.status(400).json({
         success: false,
         error: 'Cannot modify system role properties. Only isActive can be changed.',
@@ -219,16 +226,16 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     }
 
     // If name is being updated, check for duplicates
-    if (name && name.toLowerCase() !== role.name) {
-      const existing = await Role.findOne({ name: name.toLowerCase() });
+    if (sanitizedName && sanitizedName !== role.name) {
+      const existing = await Role.findOne({ name: sanitizedName });
       if (existing) {
         return res.status(400).json({ success: false, error: 'Role with this name already exists' });
       }
-      role.name = name.toLowerCase();
+      role.name = sanitizedName;
     }
 
-    if (displayName !== undefined) role.displayName = displayName;
-    if (description !== undefined) role.description = description;
+    if (sanitizedDisplayName !== undefined) role.displayName = sanitizedDisplayName;
+    if (sanitizedDescription !== undefined) role.description = sanitizedDescription;
     if (isActive !== undefined) role.isActive = isActive;
 
     // Validate and update permissions

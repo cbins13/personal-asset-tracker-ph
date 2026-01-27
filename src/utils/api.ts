@@ -1,5 +1,6 @@
 import { parseApiError, ErrorType } from './errorMessages';
 import { withRetry } from './retry';
+import { apiCache } from './apiCache';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
 
@@ -39,77 +40,152 @@ export interface UserSummary {
   lastLogin?: string;
 }
 
+type CacheOptions = {
+  key?: string;
+  ttl?: number;
+  bypass?: boolean;
+  invalidatePatterns?: string[];
+};
+
+const getCacheKey = (endpoint: string, cacheOptions?: CacheOptions) =>
+  cacheOptions?.key || endpoint;
+
+const getInvalidationPatterns = (endpoint: string): string[] => {
+  if (endpoint.startsWith('/auth')) return [''];
+  if (endpoint.startsWith('/accounts/providers')) return ['/accounts/providers'];
+  if (endpoint.startsWith('/accounts')) return ['/accounts', '/transactions'];
+  if (endpoint.startsWith('/transactions')) return ['/transactions', '/accounts'];
+  if (endpoint.startsWith('/categories')) return ['/categories'];
+  if (endpoint.startsWith('/accountTypes')) return ['/accountTypes'];
+  return [];
+};
+
+const pendingRequests = new Map<string, Promise<ApiResponse<any>>>();
+
+const getRequestKey = (endpoint: string, options: RequestInit, method: string) => {
+  const body = options.body;
+  let bodyHash = '';
+  if (typeof body === 'string') {
+    bodyHash = body;
+  } else if (body) {
+    try {
+      bodyHash = JSON.stringify(body);
+    } catch {
+      bodyHash = '';
+    }
+  }
+  return `${method}:${endpoint}:${bodyHash}`;
+};
+
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  cacheOptions?: CacheOptions
 ): Promise<ApiResponse<T>> {
-  try {
-    // Wrap fetch call with retry logic for network errors and server errors
-    const response = await withRetry(
-      async () => {
-        const fetchResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-          },
-          credentials: 'include', // Important for sessions
-        });
+  const method = (options.method || 'GET').toUpperCase();
+  const cacheKey = getCacheKey(endpoint, cacheOptions);
+  if (method === 'GET' && !cacheOptions?.bypass) {
+    const cached = apiCache.get<T>(cacheKey);
+    if (cached) {
+      return {
+        success: true,
+        data: cached,
+      };
+    }
+  }
 
-        // If it's a server error (5xx), throw to trigger retry
-        if (!fetchResponse.ok && fetchResponse.status >= 500) {
-          const errorData = await fetchResponse.json().catch(() => ({}));
-          const error = new Error(errorData.error || 'Server error');
-          (error as any).statusCode = fetchResponse.status;
-          (error as any).errorType = ErrorType.SERVER;
-          throw error;
+  const executeRequest = async () => {
+    try {
+      // Wrap fetch call with retry logic for network errors and server errors
+      const response = await withRetry(
+        async () => {
+          const fetchResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...options,
+            headers: {
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+            credentials: 'include', // Important for sessions
+          });
+
+          // If it's a server error (5xx), throw to trigger retry
+          if (!fetchResponse.ok && fetchResponse.status >= 500) {
+            const errorData = await fetchResponse.json().catch(() => ({}));
+            const error = new Error(errorData.error || 'Server error');
+            (error as any).statusCode = fetchResponse.status;
+            (error as any).errorType = ErrorType.SERVER;
+            throw error;
+          }
+
+          // For non-server errors, return response (no retry)
+          return fetchResponse;
+        },
+        {
+          maxAttempts: 3,
+          initialDelay: 1000,
+          maxDelay: 10000,
+          backoffMultiplier: 2,
         }
-
-        // For non-server errors, return response (no retry)
-        return fetchResponse;
-      },
-      {
-        maxAttempts: 3,
-        initialDelay: 1000,
-        maxDelay: 10000,
-        backoffMultiplier: 2,
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      const errorDetails = parseApiError(
-        { ...data, statusCode: response.status },
-        data.error || 'An error occurred'
       );
-      
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorDetails = parseApiError(
+          { ...data, statusCode: response.status },
+          data.error || 'An error occurred'
+        );
+
+        return {
+          success: false,
+          error: errorDetails.userMessage,
+          message: data.message,
+          errorType: errorDetails.type,
+          canRetry: errorDetails.canRetry,
+          statusCode: errorDetails.statusCode,
+        };
+      }
+
+      if (method === 'GET') {
+        apiCache.set(cacheKey, data, cacheOptions?.ttl);
+      } else {
+        const patterns = cacheOptions?.invalidatePatterns || getInvalidationPatterns(endpoint);
+        patterns.forEach((pattern) => apiCache.invalidate(pattern));
+      }
+
+      return {
+        success: true,
+        data,
+      };
+    } catch (error) {
+      // This catch handles network errors and server errors after retries are exhausted
+      const errorDetails = parseApiError(error, 'Network error occurred');
+
       return {
         success: false,
         error: errorDetails.userMessage,
-        message: data.message,
         errorType: errorDetails.type,
         canRetry: errorDetails.canRetry,
         statusCode: errorDetails.statusCode,
       };
     }
+  };
 
-    return {
-      success: true,
-      data,
-    };
-  } catch (error) {
-    // This catch handles network errors and server errors after retries are exhausted
-    const errorDetails = parseApiError(error, 'Network error occurred');
-    
-    return {
-      success: false,
-      error: errorDetails.userMessage,
-      errorType: errorDetails.type,
-      canRetry: errorDetails.canRetry,
-      statusCode: errorDetails.statusCode,
-    };
+  const shouldDedup = !cacheOptions?.bypass;
+  if (shouldDedup) {
+    const requestKey = getRequestKey(endpoint, options, method);
+    const existing = pendingRequests.get(requestKey);
+    if (existing) {
+      return existing as Promise<ApiResponse<T>>;
+    }
+    const requestPromise = executeRequest().finally(() => {
+      pendingRequests.delete(requestKey);
+    });
+    pendingRequests.set(requestKey, requestPromise);
+    return requestPromise;
   }
+
+  return executeRequest();
 }
 
 // Auth API functions

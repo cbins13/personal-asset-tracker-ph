@@ -7,6 +7,7 @@ import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { sendErrorResponse, sanitizeErrorMessage } from '../utils/errorHandler.js';
+import { sanitizeText, sanitizeObjectStrings } from '../utils/sanitize.js';
 
 const router = express.Router();
 
@@ -184,18 +185,21 @@ router.get('/profile', requireAuth, async (req, res) => {
 router.put('/profile', requireAuth, async (req, res) => {
   try {
     const { name, picture, preferences } = req.body;
+    const sanitizedName = name ? sanitizeText(name).trim() : undefined;
+    const sanitizedPicture = picture ? sanitizeText(picture).trim() : undefined;
+    const sanitizedPreferences = preferences ? sanitizeObjectStrings(preferences) : undefined;
     const user = await User.findById(req.session.userId);
 
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    if (name) user.name = name;
-    if (picture) user.picture = picture;
-    if (preferences) {
+    if (sanitizedName) user.name = sanitizedName;
+    if (sanitizedPicture) user.picture = sanitizedPicture;
+    if (sanitizedPreferences) {
       // Merge preferences
-      Object.keys(preferences).forEach((key) => {
-        user.preferences.set(key, preferences[key]);
+      Object.keys(sanitizedPreferences).forEach((key) => {
+        user.preferences.set(key, sanitizedPreferences[key]);
       });
     }
 

@@ -1,5 +1,6 @@
 import type { Account } from "../../utils/api";
 import { formatCurrency } from "../../utils/formatters";
+import { sanitizeText } from "../../utils/sanitize";
 
 type ProviderMeta = { id: string; label: string; accent: string } | null;
 
@@ -27,8 +28,11 @@ export default function EditAccountModal({
   getProviderMeta,
 }: Props) {
   const providerMeta = getProviderMeta(account);
+  const safeProviderLabel = providerMeta?.label ? sanitizeText(providerMeta.label) : undefined;
+  const safeAccountName = sanitizeText(account.accountName || "");
+  const safeProviderFallback = account.providerLabel ? sanitizeText(account.providerLabel) : undefined;
   const iconText =
-    providerMeta?.label?.split(" ")[0][0] || account.providerLabel?.[0] || account.accountName?.[0] || "A";
+    safeProviderLabel?.split(" ")[0][0] || safeProviderFallback?.[0] || safeAccountName?.[0] || "A";
   const iconAccent = providerMeta?.accent || "bg-gray-400";
 
   return (
@@ -46,7 +50,7 @@ export default function EditAccountModal({
                 className="text-lg font-semibold text-gray-900 dark:text-gray-100 bg-transparent border-b border-gray-300 dark:border-gray-500 focus:outline-none focus:border-gray-600 dark:focus:border-gray-400"
               />
             ) : (
-              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{account.accountName}</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{safeAccountName}</p>
             )}
             <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-gray-100">
               {formatCurrency(account.currentBalance || 0)}

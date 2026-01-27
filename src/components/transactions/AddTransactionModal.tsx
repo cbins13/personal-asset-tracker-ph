@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Account, Transaction } from "../../utils/api";
 import { ErrorType } from "../../utils/errorMessages";
+import { sanitizeText } from "../../utils/sanitize";
 import { isMongoObjectId } from "../../utils/validators";
 
 export type TransactionKind = "expense" | "income" | "installment" | "transfer";
@@ -142,7 +143,7 @@ export default function AddTransactionModal({
   const categoryOptions = useMemo(() => {
     return categories.map((category) => ({
       value: category.id,
-      label: `${category.emoji ? `${category.emoji} ` : ""}${category.label}`,
+      label: `${category.emoji ? `${category.emoji} ` : ""}${sanitizeText(category.label)}`,
     }));
   }, [categories]);
 
@@ -324,8 +325,10 @@ export default function AddTransactionModal({
                             : "border-gray-200 hover:border-gray-300",
                         ].join(" ")}
                       >
-                        <p className="text-sm font-semibold text-gray-800">{account.accountName}</p>
-                        <p className="text-xs text-gray-500">{account.providerLabel || account.type}</p>
+                        <p className="text-sm font-semibold text-gray-800">{sanitizeText(account.accountName || "")}</p>
+                        <p className="text-xs text-gray-500">
+                          {sanitizeText(account.providerLabel || account.type || "")}
+                        </p>
                       </button>
                     ))}
                   </div>
@@ -342,8 +345,10 @@ export default function AddTransactionModal({
                           toAccountId === account.id ? "border-gray-900 shadow-sm" : "border-gray-200 hover:border-gray-300",
                         ].join(" ")}
                       >
-                        <p className="text-sm font-semibold text-gray-800">{account.accountName}</p>
-                        <p className="text-xs text-gray-500">{account.providerLabel || account.type}</p>
+                        <p className="text-sm font-semibold text-gray-800">{sanitizeText(account.accountName || "")}</p>
+                        <p className="text-xs text-gray-500">
+                          {sanitizeText(account.providerLabel || account.type || "")}
+                        </p>
                       </button>
                     ))}
                   </div>
@@ -366,8 +371,10 @@ export default function AddTransactionModal({
                           : "border-gray-200 hover:border-gray-300",
                       ].join(" ")}
                     >
-                      <p className="text-sm font-semibold text-gray-800">{account.accountName}</p>
-                      <p className="text-xs text-gray-500">{account.providerLabel || account.type}</p>
+                      <p className="text-sm font-semibold text-gray-800">{sanitizeText(account.accountName || "")}</p>
+                      <p className="text-xs text-gray-500">
+                        {sanitizeText(account.providerLabel || account.type || "")}
+                      </p>
                     </button>
                   ))}
                 </div>

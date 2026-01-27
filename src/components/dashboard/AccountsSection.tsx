@@ -1,5 +1,6 @@
 import { ErrorType } from "../../utils/errorMessages";
 import { formatCurrency } from "../../utils/formatters";
+import { sanitizeText } from "../../utils/sanitize";
 import type { Account } from "../../utils/api";
 
 type ProviderMeta = { id: string; label: string; accent: string } | null;
@@ -66,8 +67,11 @@ export default function AccountsSection({
       ) : (
         filteredAccounts.map((account) => {
           const providerMeta = getProviderMeta(account);
+          const safeProviderLabel = providerMeta?.label ? sanitizeText(providerMeta.label) : undefined;
+          const safeAccountName = sanitizeText(account.accountName || "");
+          const safeProviderFallback = account.providerLabel ? sanitizeText(account.providerLabel) : undefined;
           const iconText =
-            providerMeta?.label?.split(" ")[0][0] || account.providerLabel?.[0] || account.accountName?.[0] || "A";
+            safeProviderLabel?.split(" ")[0][0] || safeProviderFallback?.[0] || safeAccountName?.[0] || "A";
           const iconAccent = providerMeta?.accent || "bg-gray-400";
           return (
             <button
@@ -80,8 +84,10 @@ export default function AccountsSection({
                   {iconText.toUpperCase()}
                 </div>
                 <div>
-                  <p className="text-base font-semibold text-gray-900 dark:text-gray-100">{account.accountName}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{account.providerLabel || account.type}</p>
+                  <p className="text-base font-semibold text-gray-900 dark:text-gray-100">{safeAccountName}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {safeProviderFallback || sanitizeText(account.type)}
+                  </p>
                 </div>
               </div>
               <p className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">

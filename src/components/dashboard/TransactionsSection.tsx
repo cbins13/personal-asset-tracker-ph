@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ErrorType } from "../../utils/errorMessages";
 import { formatCurrency, formatDateTime } from "../../utils/formatters";
 import type { Transaction } from "../../utils/api";
+import { sanitizeText } from "../../utils/sanitize";
 
 type Props = {
   title?: string;
@@ -96,6 +97,8 @@ export default function TransactionsSection({
           transactions.map((tx) => {
             const kind = tx.transactionKind || (tx.type === "credit" ? "income" : tx.type === "debit" ? "expense" : "expense");
             const signedAmount = kind === "income" ? Math.abs(tx.amount) : kind === "transfer" ? tx.amount : -Math.abs(tx.amount);
+            const safeLabel = sanitizeText(tx.label || tx.categoryLabel || "Transaction");
+            const safeAccountLabel = sanitizeText(getAccountLabel(tx));
             return (
               <div
                 key={tx.id}
@@ -103,10 +106,8 @@ export default function TransactionsSection({
               >
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">{formatDateTime(tx.occurredAt || tx.createdAt)}</p>
-                  <p className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
-                    {tx.label || tx.categoryLabel || "Transaction"}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getAccountLabel(tx)}</p>
+                  <p className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">{safeLabel}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{safeAccountLabel}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <p

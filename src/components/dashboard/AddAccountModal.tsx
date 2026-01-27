@@ -1,4 +1,5 @@
 import { ErrorType } from "../../utils/errorMessages";
+import { sanitizeText } from "../../utils/sanitize";
 
 type ProviderOption = { id: string; label: string; accent: string };
 type AccountTab = { value: string; label: string };
@@ -129,9 +130,9 @@ export default function AddAccountModal({
                     className="w-full flex items-center gap-3 bg-gray-100 dark:bg-gray-600 rounded-2xl px-4 py-3 text-left hover:bg-white dark:hover:bg-gray-500"
                   >
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold ${provider.accent}`}>
-                      {provider.label.split(" ")[0][0]}
+                      {sanitizeText(provider.label).split(" ")[0][0]}
                     </div>
-                    <span className="text-base text-gray-800 dark:text-gray-200">{provider.label}</span>
+                    <span className="text-base text-gray-800 dark:text-gray-200">{sanitizeText(provider.label)}</span>
                   </button>
                 ))}
               </div>
@@ -219,7 +220,7 @@ export default function AddAccountModal({
                 {selectedProvider?.label?.split(" ")[0][0] || "A"}
               </div>
               <span className="text-base text-gray-800 dark:text-gray-200">
-                {selectedProvider?.label || "Selected Account"}
+                {selectedProvider?.label ? sanitizeText(selectedProvider.label) : "Selected Account"}
               </span>
             </div>
 

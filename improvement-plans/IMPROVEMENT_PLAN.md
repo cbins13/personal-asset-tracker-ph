@@ -967,6 +967,9 @@ src/components/dashboard/
 
 **Issue:** API responses not cached, refetched on every page load.
 
+**Status:** ✅ **COMPLETED** - January 27, 2026  
+**Test Results:** See `improvement-plans/step-11-api-response-caching/TEST_RESULTS.md`
+
 **Files to Create:**
 - `src/utils/apiCache.ts`
 
@@ -1064,6 +1067,9 @@ export const apiCache = new ApiCache();
 
 **Issue:** Same endpoint may be called multiple times simultaneously.
 
+**Status:** ✅ **COMPLETED** - January 27, 2026  
+**Test Results:** See `improvement-plans/step-12-request-dedup/TEST_RESULTS.md`
+
 **Files to Modify:**
 - `src/utils/api.ts`
 
@@ -1125,6 +1131,9 @@ export async function apiRequest<T>(
 ### 13. Add Input Sanitization
 
 **Issue:** User-generated content should be sanitized to prevent XSS.
+
+**Status:** ✅ **COMPLETED** - January 27, 2026  
+**Test Results:** See `improvement-plans/step-13-input-sanitization/TEST_RESULTS.md`
 
 **Files to Create:**
 - `src/utils/sanitize.ts`
@@ -1673,9 +1682,9 @@ For each step, update the status:
 | 8. Forgot Password | Low | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Removed non-functional link |
 | 9. Create Custom Hooks | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Hooks added; pages refactored |
 | 10. Break Down Components | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Dashboard split into subcomponents |
-| 11. API Caching | Medium | ⏳ Not Started | - | - | - | - |
-| 12. Request Deduplication | Medium | ⏳ Not Started | - | - | - | - |
-| 13. Input Sanitization | Medium | ⏳ Not Started | - | - | - | - |
+| 11. API Caching | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | In-memory cache + invalidation |
+| 12. Request Deduplication | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Deduped in-flight requests |
+| 13. Input Sanitization | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Sanitization utilities + usage |
 
 ---
 
@@ -1719,4 +1728,4 @@ For each step, update the status:
 ---
 
 **Last Updated:** January 27, 2026  
-**Status:** In Progress (Steps 1-10 Complete)
+**Status:** In Progress (Steps 1-13 Complete)

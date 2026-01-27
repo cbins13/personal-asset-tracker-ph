@@ -2,6 +2,7 @@ import express from 'express';
 import Permission from '../models/Permission.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { sendErrorResponse, sanitizeErrorMessage } from '../utils/errorHandler.js';
+import { sanitizeText } from '../utils/sanitize.js';
 
 const router = express.Router();
 
@@ -82,13 +83,16 @@ router.get('/:id', requireAuth, requireAdmin, async (req, res) => {
 router.post('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name, description, category } = req.body;
+    const sanitizedName = name ? sanitizeText(name).trim().toLowerCase() : '';
+    const sanitizedDescription = description ? sanitizeText(description).trim() : '';
+    const sanitizedCategory = category ? sanitizeText(category).trim() : undefined;
 
-    if (!name || !description) {
+    if (!sanitizedName || !sanitizedDescription) {
       return res.status(400).json({ success: false, error: 'Name and description are required' });
     }
 
     // Validate name format (resource:action)
-    if (!/^[a-z0-9]+:[a-z0-9]+$/.test(name)) {
+    if (!/^[a-z0-9]+:[a-z0-9]+$/.test(sanitizedName)) {
       return res.status(400).json({
         success: false,
         error: 'Permission name must be in format "resource:action" (e.g., users:read)',
@@ -96,15 +100,15 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     }
 
     // Check if permission already exists
-    const existing = await Permission.findOne({ name: name.toLowerCase() });
+    const existing = await Permission.findOne({ name: sanitizedName });
     if (existing) {
       return res.status(400).json({ success: false, error: 'Permission with this name already exists' });
     }
 
     const permission = new Permission({
-      name: name.toLowerCase(),
-      description,
-      category: category || 'other',
+      name: sanitizedName,
+      description: sanitizedDescription,
+      category: sanitizedCategory || 'other',
     });
 
     await permission.save();
@@ -140,6 +144,9 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
 router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name, description, category, isActive } = req.body;
+    const sanitizedName = name ? sanitizeText(name).trim().toLowerCase() : undefined;
+    const sanitizedDescription = description !== undefined ? sanitizeText(description).trim() : undefined;
+    const sanitizedCategory = category !== undefined ? sanitizeText(category).trim() : undefined;
     const permission = await Permission.findById(req.params.id);
 
     if (!permission) {
@@ -147,8 +154,8 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     }
 
     // If name is being updated, validate format
-    if (name && name !== permission.name) {
-      if (!/^[a-z0-9]+:[a-z0-9]+$/.test(name)) {
+    if (sanitizedName && sanitizedName !== permission.name) {
+      if (!/^[a-z0-9]+:[a-z0-9]+$/.test(sanitizedName)) {
         return res.status(400).json({
           success: false,
           error: 'Permission name must be in format "resource:action" (e.g., users:read)',
@@ -156,16 +163,16 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       }
 
       // Check if new name already exists
-      const existing = await Permission.findOne({ name: name.toLowerCase() });
+      const existing = await Permission.findOne({ name: sanitizedName });
       if (existing) {
         return res.status(400).json({ success: false, error: 'Permission with this name already exists' });
       }
 
-      permission.name = name.toLowerCase();
+      permission.name = sanitizedName;
     }
 
-    if (description !== undefined) permission.description = description;
-    if (category !== undefined) permission.category = category;
+    if (sanitizedDescription !== undefined) permission.description = sanitizedDescription;
+    if (sanitizedCategory !== undefined) permission.category = sanitizedCategory;
     if (isActive !== undefined) permission.isActive = isActive;
 
     await permission.save();

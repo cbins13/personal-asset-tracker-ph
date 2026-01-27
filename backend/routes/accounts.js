@@ -8,6 +8,7 @@ import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendErrorResponse, sanitizeErrorMessage } from '../utils/errorHandler.js';
+import { sanitizeText } from '../utils/sanitize.js';
 
 const router = express.Router();
 
@@ -130,7 +131,8 @@ router.get('/providers', requireAuth, async (req, res) => {
 router.post('/providers', requireAuth, async (req, res) => {
   try {
     const { type: requestedType, providerLabel, accent } = req.body;
-    if (!requestedType || !providerLabel || !providerLabel.trim()) {
+    const normalizedLabel = sanitizeText(providerLabel || '').trim();
+    if (!requestedType || !normalizedLabel) {
       return res.status(400).json({ success: false, error: 'type and providerLabel are required' });
     }
 
@@ -145,7 +147,6 @@ router.post('/providers', requireAuth, async (req, res) => {
     }
 
     const type = requestedType === 'Wallet' ? 'Custom' : requestedType;
-    const normalizedLabel = providerLabel.trim();
     const providerId = buildProviderId(normalizedLabel);
 
     const existing = await CustomProvider.findOne({
@@ -238,8 +239,10 @@ router.post('/', requireAuth, async (req, res) => {
   try {
     const { accountName, type, transactions, currentBalance, addToNetWorth, providerId, providerLabel } =
       req.body;
+    const sanitizedAccountName = sanitizeText(accountName || '').trim();
+    const sanitizedProviderLabel = providerLabel ? sanitizeText(providerLabel).trim() : undefined;
 
-    if (!accountName || !type) {
+    if (!sanitizedAccountName || !type) {
       await session.abortTransaction();
       return res.status(400).json({ success: false, error: 'accountName and type are required' });
     }
@@ -265,12 +268,12 @@ router.post('/', requireAuth, async (req, res) => {
     // The balance will be set by the initial transaction if provided
     const account = new Account({
       userId: req.session.userId,
-      accountName,
+      accountName: sanitizedAccountName,
       type,
       currentBalance: 0,
       addToNetWorth: addToNetWorth ?? true,
       providerId,
-      providerLabel,
+      providerLabel: sanitizedProviderLabel,
       transactions: transactions || [],
     });
 
@@ -372,6 +375,8 @@ router.put('/:id', requireAuth, async (req, res) => {
 
     const { accountName, type, transactions, currentBalance, addToNetWorth, providerId, providerLabel } =
       req.body;
+    const sanitizedAccountName = accountName !== undefined ? sanitizeText(accountName).trim() : undefined;
+    const sanitizedProviderLabel = providerLabel !== undefined ? sanitizeText(providerLabel).trim() : undefined;
     const account = await Account.findOne({
       _id: req.params.id,
       userId: req.session.userId,
@@ -396,11 +401,11 @@ router.put('/:id', requireAuth, async (req, res) => {
       account.type = type;
     }
 
-    if (accountName !== undefined) {
-      if (!accountName.trim()) {
+    if (sanitizedAccountName !== undefined) {
+      if (!sanitizedAccountName) {
         return res.status(400).json({ success: false, error: 'accountName cannot be empty' });
       }
-      account.accountName = accountName;
+      account.accountName = sanitizedAccountName;
     }
 
     // Prevent direct currentBalance updates - balance should only change via transactions
@@ -412,7 +417,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     }
     if (addToNetWorth !== undefined) account.addToNetWorth = addToNetWorth;
     if (providerId !== undefined) account.providerId = providerId;
-    if (providerLabel !== undefined) account.providerLabel = providerLabel;
+    if (sanitizedProviderLabel !== undefined) account.providerLabel = sanitizedProviderLabel;
 
     await account.save();
 

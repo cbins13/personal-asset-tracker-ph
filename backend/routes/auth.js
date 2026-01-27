@@ -5,6 +5,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { hashPassword, comparePassword, validatePassword } from '../utils/password.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendErrorResponse } from '../utils/errorHandler.js';
+import { sanitizeText } from '../utils/sanitize.js';
 
 const router = express.Router();
 
@@ -99,6 +100,8 @@ router.post('/google', async (req, res) => {
 
     const payload = ticket.getPayload();
     const { sub: googleId, email, name, picture } = payload;
+    const sanitizedName = name ? sanitizeText(name).trim() : undefined;
+    const sanitizedPicture = picture ? sanitizeText(picture).trim() : undefined;
 
     // Find or create user
     let user = await User.findOne({ googleId });
@@ -110,22 +113,22 @@ router.post('/google', async (req, res) => {
       if (user) {
         // Link Google account to existing user
         user.googleId = googleId;
-        user.picture = picture;
+        user.picture = sanitizedPicture;
         user.provider = 'google';
       } else {
         // Create new user
         user = new User({
           googleId,
           email,
-          name,
-          picture,
+          name: sanitizedName,
+          picture: sanitizedPicture,
           provider: 'google',
         });
       }
     } else {
       // Update last login and picture if changed
       user.lastLogin = new Date();
-      if (picture) user.picture = picture;
+      if (sanitizedPicture) user.picture = sanitizedPicture;
     }
 
     await user.save();
@@ -180,8 +183,9 @@ router.post('/google', async (req, res) => {
 router.post('/register', async (req, res) => {
   try {
     const { email, password, name } = req.body;
+    const sanitizedName = name ? sanitizeText(name).trim() : '';
 
-    if (!email || !password || !name) {
+    if (!email || !password || !sanitizedName) {
       return res.status(400).json({ success: false, error: 'Email, password, and name are required' });
     }
 
@@ -204,7 +208,7 @@ router.post('/register', async (req, res) => {
     const user = new User({
       email,
       password: hashedPassword,
-      name,
+      name: sanitizedName,
       provider: 'local',
     });
 

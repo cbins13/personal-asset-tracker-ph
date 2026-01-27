@@ -4,6 +4,7 @@ import Transaction from '../models/Transaction.js';
 import Account from '../models/Account.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendErrorResponse } from '../utils/errorHandler.js';
+import { sanitizeText } from '../utils/sanitize.js';
 
 const router = express.Router();
 
@@ -118,9 +119,12 @@ router.post('/', requireAuth, async (req, res) => {
       recordInBudget,
       notes,
     } = req.body;
+    const sanitizedLabel = label ? sanitizeText(label).trim() : undefined;
+    const sanitizedNotes = notes ? sanitizeText(notes).trim() : undefined;
     const isCategoryIdValid = !!categoryId && mongoose.Types.ObjectId.isValid(categoryId);
     const normalizedCategoryId = isCategoryIdValid ? categoryId : undefined;
     const normalizedCategoryLabel = categoryLabel || (isCategoryIdValid ? undefined : categoryId);
+    const sanitizedCategoryLabel = normalizedCategoryLabel ? sanitizeText(normalizedCategoryLabel).trim() : undefined;
 
     if (transactionKind && !allowedKinds.includes(transactionKind)) {
       await session.abortTransaction();
@@ -163,12 +167,12 @@ router.post('/', requireAuth, async (req, res) => {
         toAccountId,
         amount,
         transactionKind: kind,
-        label,
+        label: sanitizedLabel,
         occurredAt,
         categoryId: normalizedCategoryId,
-        categoryLabel: normalizedCategoryLabel,
+        categoryLabel: sanitizedCategoryLabel,
         recordInBudget,
-        notes,
+        notes: sanitizedNotes,
       });
 
       await transaction.save({ session });
@@ -207,12 +211,12 @@ router.post('/', requireAuth, async (req, res) => {
       amount,
       type: normalizedType,
       transactionKind: kind,
-      label,
+      label: sanitizedLabel,
       occurredAt,
       categoryId: normalizedCategoryId,
-      categoryLabel: normalizedCategoryLabel,
+      categoryLabel: sanitizedCategoryLabel,
       recordInBudget,
-      notes,
+      notes: sanitizedNotes,
     });
 
     await transaction.save({ session });
@@ -263,6 +267,9 @@ router.put('/:id', requireAuth, async (req, res) => {
       fromAccountId,
       toAccountId,
     } = req.body;
+    const sanitizedLabel = label !== undefined ? sanitizeText(label).trim() : undefined;
+    const sanitizedNotes = notes !== undefined ? sanitizeText(notes).trim() : undefined;
+    const sanitizedCategoryLabel = categoryLabel !== undefined ? sanitizeText(categoryLabel).trim() : undefined;
     const transaction = await Transaction.findOne({ _id: req.params.id, userId: req.session.userId });
     if (!transaction) {
       await session.abortTransaction();
@@ -368,12 +375,12 @@ router.put('/:id', requireAuth, async (req, res) => {
     }
 
     if (amount !== undefined) transaction.amount = amount;
-    if (label !== undefined) transaction.label = label;
+    if (sanitizedLabel !== undefined) transaction.label = sanitizedLabel;
     if (occurredAt !== undefined) transaction.occurredAt = occurredAt;
     if (categoryId !== undefined) transaction.categoryId = categoryId;
-    if (categoryLabel !== undefined) transaction.categoryLabel = categoryLabel;
+    if (sanitizedCategoryLabel !== undefined) transaction.categoryLabel = sanitizedCategoryLabel;
     if (recordInBudget !== undefined) transaction.recordInBudget = recordInBudget;
-    if (notes !== undefined) transaction.notes = notes;
+    if (sanitizedNotes !== undefined) transaction.notes = sanitizedNotes;
 
     await transaction.save({ session });
 

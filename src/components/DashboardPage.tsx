@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth";
 import { ErrorType } from "../utils/errorMessages";
+import { sanitizeText } from "../utils/sanitize";
 import logoSmall from "../assets/savvi_logo.png";
 import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 import Sidebar from "./Sidebar";
@@ -342,13 +343,13 @@ export default function DashboardPage() {
         accounts.find((account) => account.id === tx.toAccountId)?.accountName ||
         tx.toAccountId ||
         "Destination";
-      return `${fromAccount} → ${toAccount}`;
+      return sanitizeText(`${fromAccount} → ${toAccount}`);
     }
-    return (
+    return sanitizeText(
       tx.account?.accountName ||
-      accounts.find((account) => account.id === tx.accountId)?.accountName ||
-      tx.accountId ||
-      "Account"
+        accounts.find((account) => account.id === tx.accountId)?.accountName ||
+        tx.accountId ||
+        "Account"
     );
   };
 
@@ -518,7 +519,7 @@ export default function DashboardPage() {
                 ) : null}
                 <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                   {selectedAccount
-                    ? `${selectedAccount.providerLabel || selectedAccount.accountName} - ${selectedAccount.type}`
+                    ? `${sanitizeText(selectedAccount.providerLabel || selectedAccount.accountName)} - ${sanitizeText(selectedAccount.type)}`
                     : "Accounts"}
                 </h1>
               </div>
