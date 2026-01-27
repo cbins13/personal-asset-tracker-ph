@@ -81,7 +81,7 @@ export default function SignupPage() {
         setSuccessMessage("Account created successfully! Redirecting...");
         // Redirect to login or dashboard after a short delay
         setTimeout(() => {
-          navigate({ to: "/login" });
+          navigate({ to: "/login", search: { redirect: "/dashboard" } });
         }, 1500);
       } else {
         setErrors({ submit: response.error || "Registration failed" });
@@ -181,6 +181,7 @@ export default function SignupPage() {
             Or{" "}
             <Link
               to="/login"
+              search={{ redirect: "/dashboard" }}
               className="font-medium text-primary-600 hover:text-primary-500"
             >
               sign in to your existing account
@@ -418,6 +419,7 @@ export default function SignupPage() {
                 Already have an account?{" "}
                 <Link
                   to="/login"
+                  search={{ redirect: "/dashboard" }}
                   className="font-medium text-primary-600 hover:text-primary-500"
                 >
                   Sign in

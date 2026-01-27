@@ -496,7 +496,7 @@ export const transactionsApi = {
               accountId: options?.accountId,
               kind: options?.kind,
               includeAccounts: options?.includeAccounts ? 'true' : undefined,
-            }).filter(([, value]) => value)
+            }).flatMap(([key, value]) => (value ? [[key, value]] : []))
           ).toString();
     return apiRequest<{ transactions: Transaction[] }>(`/transactions${query ? `?${query}` : ''}`);
   },

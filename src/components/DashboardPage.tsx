@@ -324,13 +324,6 @@ export default function DashboardPage() {
     }
   };
 
-  const getTransactionKind = (tx: Transaction) => {
-    if (tx.transactionKind) return tx.transactionKind;
-    if (tx.type === "credit") return "income";
-    if (tx.type === "debit") return "expense";
-    return "expense";
-  };
-
   const getAccountLabel = (tx: Transaction) => {
     if (tx.transactionKind === "transfer") {
       const fromAccount =

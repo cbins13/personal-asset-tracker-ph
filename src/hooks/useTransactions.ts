@@ -15,13 +15,12 @@ export function useTransactions(options: UseTransactionsOptions = {}) {
   const isEnabled = options.enabled !== false;
   const buildEndpoint = useCallback(
     (params: { accountId?: string; kind?: TransactionKind; includeAccounts?: boolean }) => {
-      const query = new URLSearchParams(
-        Object.entries({
-          accountId: params.accountId,
-          kind: params.kind,
-          includeAccounts: params.includeAccounts ? "true" : undefined,
-        }).filter(([, value]) => value)
-      ).toString();
+      const queryEntries = Object.entries({
+        accountId: params.accountId,
+        kind: params.kind,
+        includeAccounts: params.includeAccounts ? "true" : undefined,
+      }).flatMap(([key, value]) => (value ? [[key, value]] : []));
+      const query = new URLSearchParams(queryEntries).toString();
       return `/transactions${query ? `?${query}` : ""}`;
     },
     []

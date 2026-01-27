@@ -3,15 +3,17 @@
  * Provides structured error parsing and user-friendly error messages
  */
 
-export enum ErrorType {
-  NETWORK = 'network',
-  AUTHENTICATION = 'authentication',
-  AUTHORIZATION = 'authorization',
-  VALIDATION = 'validation',
-  NOT_FOUND = 'not_found',
-  SERVER = 'server',
-  UNKNOWN = 'unknown'
-}
+export const ErrorType = {
+  NETWORK: 'network',
+  AUTHENTICATION: 'authentication',
+  AUTHORIZATION: 'authorization',
+  VALIDATION: 'validation',
+  NOT_FOUND: 'not_found',
+  SERVER: 'server',
+  UNKNOWN: 'unknown',
+} as const;
+
+export type ErrorType = (typeof ErrorType)[keyof typeof ErrorType];
 
 export interface ErrorDetails {
   type: ErrorType;
