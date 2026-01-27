@@ -67,11 +67,6 @@ export default function LoginPage() {
       const response = await authApi.googleLogin(credentialResponse.credential);
 
       if (response.success && response.data) {
-        // Store token if provided
-        const authData = response.data as { token?: string; user?: any };
-        if (authData.token) {
-          localStorage.setItem("token", authData.token);
-        }
         // Refresh auth state
         await auth.refresh();
         // Redirect to the redirect URL or dashboard

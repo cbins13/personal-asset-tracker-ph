@@ -174,7 +174,6 @@ export default function SettingsPage() {
 
   const handleDeleted = useCallback(() => {
     auth.logout().catch(() => {});
-    localStorage.removeItem("token");
     navigate({ to: "/" });
   }, [auth, navigate]);
 

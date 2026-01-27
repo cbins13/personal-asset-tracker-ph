@@ -25,6 +25,19 @@ const generateToken = (userId) => {
   });
 };
 
+const getAuthCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+});
+
+const getAuthCookieClearOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+});
+
 // Google OAuth verification and login
 router.post('/google', async (req, res) => {
   try {
@@ -130,10 +143,11 @@ router.post('/google', async (req, res) => {
     // Generate JWT token
     const token = generateToken(user._id);
 
-    // Return user data and token
+    res.cookie('authToken', token, getAuthCookieOptions());
+
+    // Return user data
     res.json({
       success: true,
-      token,
       user: {
         id: user._id,
         email: user.email,
@@ -209,9 +223,10 @@ router.post('/register', async (req, res) => {
     // Generate JWT token
     const token = generateToken(user._id);
 
+    res.cookie('authToken', token, getAuthCookieOptions());
+
     res.status(201).json({
       success: true,
-      token,
       user: {
         id: user._id,
         email: user.email,
@@ -266,9 +281,10 @@ router.post('/login', async (req, res) => {
     // Generate JWT token
     const token = generateToken(user._id);
 
+    res.cookie('authToken', token, getAuthCookieOptions());
+
     res.json({
       success: true,
-      token,
       user: {
         id: user._id,
         email: user.email,
@@ -292,6 +308,7 @@ router.post('/logout', (req, res) => {
       return res.status(500).json({ success: false, error: 'Logout failed' });
     }
     res.clearCookie('connect.sid');
+    res.clearCookie('authToken', getAuthCookieClearOptions());
     res.json({ success: true, message: 'Logged out successfully' });
   });
 });

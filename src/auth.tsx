@@ -94,7 +94,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null)
         setIsAuthenticated(false)
-        localStorage.removeItem('token')
         retryCountRef.current = 0 // Reset retry count
         setIsLoading(false)
         setError(null)
@@ -109,7 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(errorMessage)
       setUser(null)
       setIsAuthenticated(false)
-      localStorage.removeItem('token')
       
       // Increment retry count
       retryCountRef.current += 1
@@ -152,10 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorMessage)
       }
 
-      const authData = response.data as { token?: string; user?: User }
-      if (authData.token) {
-        localStorage.setItem('token', authData.token)
-      }
+      const authData = response.data as { user?: User }
       if (authData.user) {
         setUser(authData.user)
         setIsAuthenticated(true)
@@ -174,7 +169,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setUser(null)
       setIsAuthenticated(false)
-      localStorage.removeItem('token')
     }
   }
 

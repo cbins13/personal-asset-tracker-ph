@@ -15,7 +15,6 @@ interface ApiResponse<T = any> {
 
 interface AuthResponse {
   success: boolean;
-  token?: string;
   user?: {
     id: string;
     email: string;

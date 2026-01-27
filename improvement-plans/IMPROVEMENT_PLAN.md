@@ -586,6 +586,9 @@ import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
 **Issue:** JWT tokens stored in localStorage (XSS risk). Should consider httpOnly cookies.
 
+**Status:** ✅ **COMPLETED** - January 27, 2026  
+**Test Results:** See `improvement-plans/step-6-improve-jwt-security/TEST_RESULTS.md`
+
 **Files to Modify:**
 - `src/auth.tsx`
 - `backend/routes/auth.js`
@@ -1653,7 +1656,7 @@ For each step, update the status:
 | 3. Add Retry Mechanisms | High | ✅ Complete | AI Assistant | Jan 26, 2026 | Jan 26, 2026 | Retry logic with exponential backoff implemented. See TEST_RESULTS.md |
 | 4. Integrate AccountTypes API | High | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Uses accountTypes hook + fallback |
 | 5. Migrate Router Devtools | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Package swap + import update |
-| 6. Improve JWT Security | Medium | ⏳ Not Started | - | - | - | - |
+| 6. Improve JWT Security | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | httpOnly authToken cookie |
 | 7. Sanitize Error Messages | Medium | ⏳ Not Started | - | - | - | - |
 | 8. Forgot Password | Low | ⏳ Not Started | - | - | - | - |
 | 9. Create Custom Hooks | Medium | ⏳ Not Started | - | - | - | - |
@@ -1704,4 +1707,4 @@ For each step, update the status:
 ---
 
 **Last Updated:** January 26, 2026  
-**Status:** In Progress (Steps 1-5 Complete)
+**Status:** In Progress (Steps 1-6 Complete)

@@ -79,11 +79,6 @@ export default function SignupPage() {
 
       if (response.success && response.data) {
         setSuccessMessage("Account created successfully! Redirecting...");
-        // Store token if provided
-        const authData = response.data as { token?: string; user?: any };
-        if (authData.token) {
-          localStorage.setItem("token", authData.token);
-        }
         // Redirect to login or dashboard after a short delay
         setTimeout(() => {
           navigate({ to: "/login" });
@@ -140,11 +135,6 @@ export default function SignupPage() {
       const response = await authApi.googleLogin(credentialResponse.credential);
 
       if (response.success && response.data) {
-        // Store token if provided
-        const authData = response.data as { token?: string; user?: any };
-        if (authData.token) {
-          localStorage.setItem("token", authData.token);
-        }
         // Redirect to dashboard
         navigate({ to: "/dashboard" });
       } else {

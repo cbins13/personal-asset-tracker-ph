@@ -16,12 +16,13 @@ describe('Authentication Endpoints', () => {
 
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('token');
       expect(response.body).toHaveProperty('user');
       expect(response.body.user).toHaveProperty('id');
       expect(response.body.user.email).toBe('newuser@example.com');
       expect(response.body.user.name).toBe('New User');
       expect(response.headers['set-cookie']).toBeDefined();
+      const cookies = response.headers['set-cookie'] || [];
+      expect(cookies.some((cookie) => cookie.startsWith('authToken='))).toBe(true);
     });
 
     it('should return error for duplicate email', async () => {
@@ -82,10 +83,11 @@ describe('Authentication Endpoints', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('token');
       expect(response.body).toHaveProperty('user');
       expect(response.body.user.id).toBe(user._id.toString());
       expect(response.headers['set-cookie']).toBeDefined();
+      const cookies = response.headers['set-cookie'] || [];
+      expect(cookies.some((cookie) => cookie.startsWith('authToken='))).toBe(true);
     });
 
     it('should return error for invalid credentials', async () => {
