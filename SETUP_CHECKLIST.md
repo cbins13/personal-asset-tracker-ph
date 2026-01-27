@@ -32,6 +32,24 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 VITE_API_URL=http://localhost:5002/api  # Optional, defaults to this
 ```
 
+### 4. Vercel Environment Variables (Production)
+
+**Backend (Vercel Project > Settings > Environment Variables):**
+```env
+NODE_ENV=production
+MONGODB_URI=your-mongodb-atlas-connection-string
+SESSION_SECRET=your-random-secret-key
+JWT_SECRET=your-random-secret-key
+GOOGLE_CLIENT_ID=your-google-client-id
+FRONTEND_URL=https://your-vercel-domain.vercel.app
+```
+
+**Frontend (Vercel Project > Settings > Environment Variables):**
+```env
+VITE_GOOGLE_CLIENT_ID=your-google-client-id
+VITE_API_URL=/api
+```
+
 ## 🧪 Testing Registration & Login
 
 ### Test Registration:
