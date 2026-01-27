@@ -154,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (authData.user) {
         setUser(authData.user)
         setIsAuthenticated(true)
-        setRetryCount(0) // Reset retry count on successful login
+        retryCountRef.current = 0 // Reset retry count on successful login
       }
       setIsLoading(false)
     } catch (err) {

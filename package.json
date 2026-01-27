@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "debug:ts": "node scripts/debug-ts-errors.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },

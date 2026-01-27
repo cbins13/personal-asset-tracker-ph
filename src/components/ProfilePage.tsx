@@ -67,7 +67,7 @@ export default function ProfilePage() {
   const user = auth.user;
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoggedLoadingStart = useRef(false);
 
   const handleLogout = async () => {

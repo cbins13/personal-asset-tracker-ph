@@ -32,20 +32,14 @@ type BaseProps = {
   categories: CategoryOption[];
   onClose: () => void;
   defaultAccountId?: string;
+  onCreate?: (payload: AddTransactionPayload) => Promise<void>;
+  onUpdate?: (transactionId: string, payload: AddTransactionPayload) => Promise<void>;
+  transaction?: Transaction;
 };
 
-type CreateProps = BaseProps & {
-  mode?: "create";
-  onCreate: (payload: AddTransactionPayload) => Promise<void>;
+type Props = BaseProps & {
+  mode?: "create" | "edit";
 };
-
-type EditProps = BaseProps & {
-  mode: "edit";
-  transaction: Transaction;
-  onUpdate: (transactionId: string, payload: AddTransactionPayload) => Promise<void>;
-};
-
-type Props = CreateProps | EditProps;
 
 const tabs: { id: TransactionKind; label: string }[] = [
   { id: "expense", label: "Expense" },

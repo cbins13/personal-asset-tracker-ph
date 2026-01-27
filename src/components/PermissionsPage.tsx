@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../auth";
 import Sidebar from "./Sidebar";
 import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 import { permissionsApi, type Permission } from "../utils/api";
@@ -14,7 +13,6 @@ const CATEGORIES = [
 ] as const;
 
 export default function PermissionsPage() {
-  const auth = useAuth();
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../auth";
 import Sidebar from "./Sidebar";
 import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 import { rolesApi, type Role } from "../utils/api";
 import EditRoleModal from "./EditRoleModal";
 
 export default function RolesPage() {
-  const auth = useAuth();
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
