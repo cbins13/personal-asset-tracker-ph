@@ -751,6 +751,9 @@ export function sanitizeError(error, context = '') {
 
 **Issue:** "Forgot your password?" link links to "#" (non-functional).
 
+**Status:** ✅ **COMPLETED** - January 27, 2026  
+**Test Results:** See `improvement-plans/step-8-forgot-password/TEST_RESULTS.md`
+
 **Files to Modify:**
 - `src/components/LoginPage.tsx`
 - `backend/routes/auth.js` (if implementing)
@@ -794,6 +797,9 @@ export function sanitizeError(error, context = '') {
 ### 9. Create Custom Hooks for Data Fetching
 
 **Issue:** Duplicate API call code in DashboardPage and TransactionsPage.
+
+**Status:** ✅ **COMPLETED** - January 27, 2026  
+**Test Results:** See `improvement-plans/step-9-create-custom-hooks/TEST_RESULTS.md`
 
 **Files to Create:**
 - `src/hooks/useAccounts.ts`
@@ -882,6 +888,9 @@ export function useAccounts() {
 ### 10. Break Down Large Components
 
 **Issue:** DashboardPage is very large (1163 lines), making it hard to maintain.
+
+**Status:** ✅ **COMPLETED** - January 27, 2026  
+**Test Results:** See `improvement-plans/step-10-break-down-components/TEST_RESULTS.md`
 
 **Files to Create:**
 - `src/components/dashboard/AccountsSection.tsx`
@@ -1661,9 +1670,9 @@ For each step, update the status:
 | 5. Migrate Router Devtools | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Package swap + import update |
 | 6. Improve JWT Security | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | httpOnly authToken cookie |
 | 7. Sanitize Error Messages | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Sanitized backend errors |
-| 8. Forgot Password | Low | ⏳ Not Started | - | - | - | - |
-| 9. Create Custom Hooks | Medium | ⏳ Not Started | - | - | - | - |
-| 10. Break Down Components | Medium | ⏳ Not Started | - | - | - | - |
+| 8. Forgot Password | Low | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Removed non-functional link |
+| 9. Create Custom Hooks | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Hooks added; pages refactored |
+| 10. Break Down Components | Medium | ✅ Complete | AI Assistant | Jan 27, 2026 | Jan 27, 2026 | Dashboard split into subcomponents |
 | 11. API Caching | Medium | ⏳ Not Started | - | - | - | - |
 | 12. Request Deduplication | Medium | ⏳ Not Started | - | - | - | - |
 | 13. Input Sanitization | Medium | ⏳ Not Started | - | - | - | - |
@@ -1709,5 +1718,5 @@ For each step, update the status:
 
 ---
 
-**Last Updated:** January 26, 2026  
-**Status:** In Progress (Steps 1-7 Complete)
+**Last Updated:** January 27, 2026  
+**Status:** In Progress (Steps 1-10 Complete)

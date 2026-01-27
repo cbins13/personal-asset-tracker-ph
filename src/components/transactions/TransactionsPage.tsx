@@ -1,18 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { accountsApi, categoriesApi, transactionsApi, type Account, type Transaction } from "../../utils/api";
+import { transactionsApi, type Transaction } from "../../utils/api";
+import { useAccounts } from "../../hooks/useAccounts";
+import { useCategories } from "../../hooks/useCategories";
+import { useTransactions } from "../../hooks/useTransactions";
 import { ErrorType } from "../../utils/errorMessages";
 import { formatCurrency, formatDateTime } from "../../utils/formatters";
 import AnimatedContentWrapper from "../../effects/AnimatedContentWrapper";
-import AddTransactionModal, { type AddTransactionPayload, type CategoryOption } from "./AddTransactionModal";
+import AddTransactionModal, { type AddTransactionPayload } from "./AddTransactionModal";
 
 type TransactionKind = "expense" | "income" | "installment" | "transfer";
-
-type TransactionWithAccounts = Transaction & {
-  account?: Account;
-  fromAccount?: Account;
-  toAccount?: Account;
-};
 
 const filters: { id: "all" | TransactionKind; label: string }[] = [
   { id: "all", label: "All" },
@@ -20,23 +17,6 @@ const filters: { id: "all" | TransactionKind; label: string }[] = [
   { id: "income", label: "Income" },
   { id: "installment", label: "Installment" },
   { id: "transfer", label: "Transfer" },
-];
-
-const fallbackCategories: CategoryOption[] = [
-  { id: "balance-adjustment", label: "Balance Adjustment", emoji: "🔄" },
-  { id: "family-support", label: "Family Support", emoji: "👨‍👩‍👧‍👦" },
-  { id: "food-drinks", label: "Food and Drinks", emoji: "🍔" },
-  { id: "gifts", label: "Gifts", emoji: "🎁" },
-  { id: "grocery", label: "Grocery", emoji: "🛒" },
-  { id: "insurance", label: "Insurance Payment", emoji: "☂️" },
-  { id: "medicine", label: "Medicine", emoji: "💊" },
-  { id: "night-out", label: "Night Out", emoji: "🍻" },
-  { id: "pet", label: "Pet", emoji: "🐶" },
-  { id: "rent", label: "Rent", emoji: "🏠" },
-  { id: "shopping", label: "Shopping", emoji: "🛍️" },
-  { id: "subscriptions", label: "Subscriptions", emoji: "🔔" },
-  { id: "transportation", label: "Transportation", emoji: "🚗" },
-  { id: "utilities", label: "Utilities", emoji: "💡" },
 ];
 
 const getTransactionKind = (tx: Transaction): TransactionKind => {
@@ -47,68 +27,34 @@ const getTransactionKind = (tx: Transaction): TransactionKind => {
 };
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<TransactionWithAccounts[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [errorType, setErrorType] = useState<ErrorType | undefined>();
-  const [canRetry, setCanRetry] = useState(false);
   const [activeFilter, setActiveFilter] = useState<"all" | TransactionKind>("all");
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [categories, setCategories] = useState<CategoryOption[]>(fallbackCategories);
   const [isEditTransactionOpen, setIsEditTransactionOpen] = useState(false);
-  const [transactionToEdit, setTransactionToEdit] = useState<TransactionWithAccounts | null>(null);
+  const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
   const [isDeletingTransactionId, setIsDeletingTransactionId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionErrorType, setActionErrorType] = useState<ErrorType | undefined>();
+  const [actionCanRetry, setActionCanRetry] = useState(false);
+  const {
+    transactions,
+    isLoading,
+    error,
+    errorType,
+    canRetry,
+    refresh: refreshTransactions,
+  } = useTransactions({ includeAccounts: true });
+  const { accounts } = useAccounts();
+  const { categories } = useCategories();
 
-  const fetchTransactions = async () => {
-    setIsLoading(true);
-    const response = await transactionsApi.list({ includeAccounts: true });
-    if (!response.success) {
-      setError(response.error || "Failed to load transactions.");
-      setErrorType(response.errorType);
-      setCanRetry(response.canRetry || false);
-      setTransactions([]);
-    } else {
-      setTransactions((response.data?.transactions || []) as TransactionWithAccounts[]);
-      setError(null);
-      setErrorType(undefined);
-      setCanRetry(false);
-    }
-    setIsLoading(false);
-  };
-
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
-
-  useEffect(() => {
-    const fetchAccounts = async () => {
-      const response = await accountsApi.getAll();
-      if (response.success) {
-        setAccounts(response.data?.accounts || []);
-      }
-    };
-    const fetchCategories = async () => {
-      const response = await categoriesApi.list();
-      if (response.success && response.data?.categories?.length) {
-        setCategories(
-          response.data.categories.map((category) => ({
-            id: category.id,
-            label: category.label,
-            emoji: category.emoji,
-          }))
-        );
-      }
-    };
-    fetchAccounts();
-    fetchCategories();
-  }, []);
+  const displayError = actionError || error;
+  const displayErrorType = actionError ? actionErrorType : errorType;
+  const displayCanRetry = actionError ? actionCanRetry : canRetry;
 
   const filteredTransactions = useMemo(() => {
     if (activeFilter === "all") return transactions;
     return transactions.filter((tx) => getTransactionKind(tx) === activeFilter);
   }, [transactions, activeFilter]);
 
-  const getAccountLabel = (tx: TransactionWithAccounts) => {
+  const getAccountLabel = (tx: Transaction) => {
     if (getTransactionKind(tx) === "transfer") {
       const fromName = tx.fromAccount?.accountName || tx.fromAccountId || "Source";
       const toName = tx.toAccount?.accountName || tx.toAccountId || "Destination";
@@ -117,7 +63,7 @@ export default function TransactionsPage() {
     return tx.account?.accountName || tx.accountId || "Account";
   };
 
-  const handleEditTransaction = (tx: TransactionWithAccounts) => {
+  const handleEditTransaction = (tx: Transaction) => {
     setTransactionToEdit(tx);
     setIsEditTransactionOpen(true);
   };
@@ -129,7 +75,7 @@ export default function TransactionsPage() {
     }
     setIsEditTransactionOpen(false);
     setTransactionToEdit(null);
-    await fetchTransactions();
+    await refreshTransactions();
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {
@@ -139,13 +85,23 @@ export default function TransactionsPage() {
     setIsDeletingTransactionId(transactionId);
     const response = await transactionsApi.delete(transactionId);
     if (!response.success) {
-      setError(response.error || "Failed to delete transaction.");
-      setErrorType(response.errorType);
-      setCanRetry(response.canRetry || false);
+      setActionError(response.error || "Failed to delete transaction.");
+      setActionErrorType(response.errorType);
+      setActionCanRetry(response.canRetry || false);
     } else {
-      await fetchTransactions();
+      setActionError(null);
+      setActionErrorType(undefined);
+      setActionCanRetry(false);
+      await refreshTransactions();
     }
     setIsDeletingTransactionId(null);
+  };
+
+  const handleRetry = () => {
+    setActionError(null);
+    setActionErrorType(undefined);
+    setActionCanRetry(false);
+    refreshTransactions();
   };
 
   return (
@@ -190,23 +146,23 @@ export default function TransactionsPage() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
               {isLoading ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">Loading transactions...</p>
-              ) : error ? (
+              ) : displayError ? (
                 <div className={`p-3 rounded-lg ${
-                  errorType === ErrorType.NETWORK || errorType === ErrorType.SERVER
+                  displayErrorType === ErrorType.NETWORK || displayErrorType === ErrorType.SERVER
                     ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
                     : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
                 }`}>
                   <div className="flex items-start justify-between">
                     <p className={`text-sm font-medium ${
-                      errorType === ErrorType.NETWORK || errorType === ErrorType.SERVER
+                      displayErrorType === ErrorType.NETWORK || displayErrorType === ErrorType.SERVER
                         ? 'text-yellow-800 dark:text-yellow-200'
                         : 'text-red-600 dark:text-red-400'
                     }`}>
-                      {error}
+                      {displayError}
                     </p>
-                    {canRetry && (
+                    {displayCanRetry && (
                       <button
-                        onClick={fetchTransactions}
+                        onClick={handleRetry}
                         className="ml-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 underline"
                       >
                         Retry

@@ -6,19 +6,23 @@ import logoSmall from "../assets/savvi_logo.png";
 import AnimatedContentWrapper from "../effects/AnimatedContentWrapper";
 import Sidebar from "./Sidebar";
 import { useAccountTypes } from "../hooks/useAccountTypes";
+import { useAccounts } from "../hooks/useAccounts";
+import { useCategories } from "../hooks/useCategories";
+import { useTransactions } from "../hooks/useTransactions";
+import NetWorthDisplay from "./dashboard/NetWorthDisplay";
+import AccountFilters from "./dashboard/AccountFilters";
+import AccountsSection from "./dashboard/AccountsSection";
+import TransactionsSection from "./dashboard/TransactionsSection";
+import AddAccountModal from "./dashboard/AddAccountModal";
+import EditAccountModal from "./dashboard/EditAccountModal";
 import {
   accountsApi,
-  categoriesApi,
   transactionsApi,
   type Account,
   type ProvidersByType,
   type Transaction,
 } from "../utils/api";
-import { formatCurrency, formatDateTime } from "../utils/formatters";
-import AddTransactionModal, {
-  type AddTransactionPayload,
-  type CategoryOption,
-} from "./transactions/AddTransactionModal";
+import AddTransactionModal, { type AddTransactionPayload } from "./transactions/AddTransactionModal";
 
 const accountProvidersFallback: Record<string, { id: string; label: string; accent: string }[]> = {
   "Custom - Other": [],
@@ -59,23 +63,6 @@ const accountProvidersFallback: Record<string, { id: string; label: string; acce
   ],
 };
 
-const fallbackCategories: CategoryOption[] = [
-  { id: "balance-adjustment", label: "Balance Adjustment", emoji: "🔄" },
-  { id: "family-support", label: "Family Support", emoji: "👨‍👩‍👧‍👦" },
-  { id: "food-drinks", label: "Food and Drinks", emoji: "🍔" },
-  { id: "gifts", label: "Gifts", emoji: "🎁" },
-  { id: "grocery", label: "Grocery", emoji: "🛒" },
-  { id: "insurance", label: "Insurance Payment", emoji: "☂️" },
-  { id: "medicine", label: "Medicine", emoji: "💊" },
-  { id: "night-out", label: "Night Out", emoji: "🍻" },
-  { id: "pet", label: "Pet", emoji: "🐶" },
-  { id: "rent", label: "Rent", emoji: "🏠" },
-  { id: "shopping", label: "Shopping", emoji: "🛍️" },
-  { id: "subscriptions", label: "Subscriptions", emoji: "🔔" },
-  { id: "transportation", label: "Transportation", emoji: "🚗" },
-  { id: "utilities", label: "Utilities", emoji: "💡" },
-];
-
 export default function DashboardPage() {
   const navigate = useNavigate();
   const auth = useAuth();
@@ -101,16 +88,6 @@ export default function DashboardPage() {
   const [customProviderErrorType, setCustomProviderErrorType] = useState<ErrorType | undefined>();
   const [customProviderCanRetry, setCustomProviderCanRetry] = useState(false);
   const [isSavingCustomProvider, setIsSavingCustomProvider] = useState(false);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountsError, setAccountsError] = useState<string | null>(null);
-  const [accountsErrorType, setAccountsErrorType] = useState<ErrorType | undefined>();
-  const [accountsCanRetry, setAccountsCanRetry] = useState(false);
-  const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [transactionsError, setTransactionsError] = useState<string | null>(null);
-  const [transactionsErrorType, setTransactionsErrorType] = useState<ErrorType | undefined>();
-  const [transactionsCanRetry, setTransactionsCanRetry] = useState(false);
-  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [providersByType, setProvidersByType] = useState<ProvidersByType>({});
   const [isEditingAccountName, setIsEditingAccountName] = useState(false);
   const [editAccountName, setEditAccountName] = useState("");
@@ -118,7 +95,30 @@ export default function DashboardPage() {
   const [isEditTransactionOpen, setIsEditTransactionOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
   const [isDeletingTransactionId, setIsDeletingTransactionId] = useState<string | null>(null);
-  const [categories, setCategories] = useState<CategoryOption[]>(fallbackCategories);
+  const [transactionActionError, setTransactionActionError] = useState<string | null>(null);
+  const [transactionActionErrorType, setTransactionActionErrorType] = useState<ErrorType | undefined>();
+  const [transactionActionCanRetry, setTransactionActionCanRetry] = useState(false);
+  const {
+    accounts,
+    isLoading: isLoadingAccounts,
+    error: accountsError,
+    errorType: accountsErrorType,
+    canRetry: accountsCanRetry,
+    refresh: refreshAccounts,
+  } = useAccounts();
+  const { categories } = useCategories();
+  const {
+    transactions,
+    isLoading: isLoadingTransactions,
+    error: transactionsError,
+    errorType: transactionsErrorType,
+    canRetry: transactionsCanRetry,
+    refresh: refreshTransactions,
+  } = useTransactions({ accountId: selectedAccountId || undefined, includeAccounts: true });
+
+  const displayTransactionsError = transactionActionError || transactionsError;
+  const displayTransactionsErrorType = transactionActionError ? transactionActionErrorType : transactionsErrorType;
+  const displayTransactionsCanRetry = transactionActionError ? transactionActionCanRetry : transactionsCanRetry;
 
   const customAccountType = useMemo(
     () => accountTypes.find((type) => type.type === "Custom - Other"),
@@ -176,23 +176,6 @@ export default function DashboardPage() {
     }
   };
 
-  const refreshAccounts = async () => {
-    setIsLoadingAccounts(true);
-    const response = await accountsApi.getAll();
-    if (!response.success) {
-      setAccountsError(response.error || "Failed to load accounts.");
-      setAccountsErrorType(response.errorType);
-      setAccountsCanRetry(response.canRetry || false);
-      setAccounts([]);
-    } else {
-      setAccounts(response.data?.accounts || []);
-      setAccountsError(null);
-      setAccountsErrorType(undefined);
-      setAccountsCanRetry(false);
-    }
-    setIsLoadingAccounts(false);
-  };
-
   const refreshProviders = async () => {
     const response = await accountsApi.getProviders();
     if (response.success && response.data?.providersByType) {
@@ -202,43 +185,8 @@ export default function DashboardPage() {
     }
   };
 
-  const refreshCategories = async () => {
-    const response = await categoriesApi.list();
-    if (response.success && response.data?.categories?.length) {
-      setCategories(
-        response.data.categories.map((category) => ({
-          id: category.id,
-          label: category.label,
-          emoji: category.emoji,
-        }))
-      );
-    }
-  };
-
-  const fetchTransactions = async (accountId?: string) => {
-    setIsLoadingTransactions(true);
-    const response = await transactionsApi.list({
-      accountId,
-      includeAccounts: true,
-    });
-    if (!response.success) {
-      setTransactionsError(response.error || "Failed to load transactions.");
-      setTransactionsErrorType(response.errorType);
-      setTransactionsCanRetry(response.canRetry || false);
-      setTransactions([]);
-    } else {
-      setTransactions(response.data?.transactions || []);
-      setTransactionsError(null);
-      setTransactionsErrorType(undefined);
-      setTransactionsCanRetry(false);
-    }
-    setIsLoadingTransactions(false);
-  };
-
   useEffect(() => {
-    refreshAccounts();
     refreshProviders();
-    refreshCategories();
   }, []);
 
   useEffect(() => {
@@ -246,10 +194,6 @@ export default function DashboardPage() {
       setSelectedAddType(defaultAddType);
     }
   }, [accountTypes, defaultAddType, selectedAddType]);
-
-  useEffect(() => {
-    fetchTransactions(selectedAccountId || undefined);
-  }, [selectedAccountId]);
 
   useEffect(() => {
     if (selectedAccount) {
@@ -415,7 +359,7 @@ export default function DashboardPage() {
     }
     setIsAddTransactionOpen(false);
     await refreshAccounts();
-    await fetchTransactions(selectedAccountId || undefined);
+    await refreshTransactions();
   };
 
   const handleEditTransaction = (tx: Transaction) => {
@@ -431,7 +375,7 @@ export default function DashboardPage() {
     setIsEditTransactionOpen(false);
     setTransactionToEdit(null);
     await refreshAccounts();
-    await fetchTransactions(selectedAccountId || undefined);
+    await refreshTransactions();
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {
@@ -441,14 +385,24 @@ export default function DashboardPage() {
     setIsDeletingTransactionId(transactionId);
     const response = await transactionsApi.delete(transactionId);
     if (!response.success) {
-      setTransactionsError(response.error || "Failed to delete transaction.");
-      setTransactionsErrorType(response.errorType);
-      setTransactionsCanRetry(response.canRetry || false);
+      setTransactionActionError(response.error || "Failed to delete transaction.");
+      setTransactionActionErrorType(response.errorType);
+      setTransactionActionCanRetry(response.canRetry || false);
     } else {
+      setTransactionActionError(null);
+      setTransactionActionErrorType(undefined);
+      setTransactionActionCanRetry(false);
       await refreshAccounts();
-      await fetchTransactions(selectedAccountId || undefined);
+      await refreshTransactions();
     }
     setIsDeletingTransactionId(null);
+  };
+
+  const handleTransactionsRetry = () => {
+    setTransactionActionError(null);
+    setTransactionActionErrorType(undefined);
+    setTransactionActionCanRetry(false);
+    refreshTransactions();
   };
 
   const getProviderMeta = (account: Account) => {
@@ -572,484 +526,82 @@ export default function DashboardPage() {
 
             {!selectedAccount && (
               <>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Total Net Worth</p>
-                    <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">
-                      {isNetWorthHidden ? "••••••" : formatCurrency(netWorthTotal)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setIsNetWorthHidden((prev) => !prev)}
-                    className="p-3 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    aria-label="Toggle net worth visibility"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                      />
-                    </svg>
-                  </button>
-                </div>
+                <NetWorthDisplay
+                  netWorthTotal={netWorthTotal}
+                  isHidden={isNetWorthHidden}
+                  onToggle={() => setIsNetWorthHidden((prev) => !prev)}
+                />
 
-                <div className="flex gap-2 flex-wrap mb-6">
-                  {accountFilters.map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => setActiveFilter(filter)}
-                      className={[
-                        "px-4 py-2 rounded-full text-sm font-medium border",
-                        activeFilter === filter
-                          ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100"
-                          : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500",
-                      ].join(" ")}
-                    >
-                      {filter}
-                    </button>
-                  ))}
-                </div>
+                <AccountFilters
+                  filters={accountFilters}
+                  activeFilter={activeFilter}
+                  onChange={setActiveFilter}
+                />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {isLoadingAccounts ? (
-                    <div className="col-span-full text-sm text-gray-500 dark:text-gray-400">Loading accounts...</div>
-                  ) : accountsError ? (
-                    <div className={`col-span-full p-3 rounded-lg ${
-                      accountsErrorType === ErrorType.NETWORK || accountsErrorType === ErrorType.SERVER
-                        ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
-                        : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-                    }`}>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className={`text-sm font-medium ${
-                            accountsErrorType === ErrorType.NETWORK || accountsErrorType === ErrorType.SERVER
-                              ? 'text-yellow-800 dark:text-yellow-200'
-                              : 'text-red-600 dark:text-red-400'
-                          }`}>
-                            {accountsError}
-                          </p>
-                        </div>
-                        {accountsCanRetry && (
-                          <button
-                            onClick={refreshAccounts}
-                            className="ml-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 underline"
-                          >
-                            Retry
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ) : filteredAccounts.length === 0 ? (
-                    <div className="col-span-full text-sm text-gray-500 dark:text-gray-400">No accounts yet.</div>
-                  ) : (
-                    filteredAccounts.map((account) => {
-                      const providerMeta = getProviderMeta(account);
-                      const iconText =
-                        providerMeta?.label?.split(" ")[0][0] ||
-                        account.providerLabel?.[0] ||
-                        account.accountName?.[0] ||
-                        "A";
-                      const iconAccent = providerMeta?.accent || "bg-gray-400";
-                      return (
-                        <button
-                          key={account.id}
-                          onClick={() => setSelectedAccountId(account.id)}
-                          className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 text-left hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold ${iconAccent}`}
-                            >
-                              {iconText.toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                                {account.accountName}
-                              </p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
-                                {account.providerLabel || account.type}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            {formatCurrency(account.currentBalance || 0)}
-                          </p>
-                        </button>
-                      );
-                    })
-                  )}
-                  <button
-                    onClick={openAddAccount}
-                    className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                  >
-                    <span className="text-3xl">+</span>
-                    <span className="mt-2 text-sm font-medium">Add Account</span>
-                  </button>
-                </div>
+                <AccountsSection
+                  filteredAccounts={filteredAccounts}
+                  isLoading={isLoadingAccounts}
+                  error={accountsError}
+                  errorType={accountsErrorType}
+                  canRetry={accountsCanRetry}
+                  onRetry={refreshAccounts}
+                  onSelectAccount={setSelectedAccountId}
+                  getProviderMeta={getProviderMeta}
+                  onAddAccount={openAddAccount}
+                />
 
-                <div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Transactions</h2>
-                    <Link to="/transactions" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-                      View all
-                    </Link>
-                  </div>
-                  <div className="mt-4 space-y-4">
-                    {isLoadingTransactions ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Loading transactions...</p>
-                    ) : transactionsError ? (
-                      <div className={`p-3 rounded-lg ${
-                        transactionsErrorType === ErrorType.NETWORK || transactionsErrorType === ErrorType.SERVER
-                          ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
-                          : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-                      }`}>
-                        <div className="flex items-start justify-between">
-                          <p className={`text-sm font-medium ${
-                            transactionsErrorType === ErrorType.NETWORK || transactionsErrorType === ErrorType.SERVER
-                              ? 'text-yellow-800 dark:text-yellow-200'
-                              : 'text-red-600 dark:text-red-400'
-                          }`}>
-                            {transactionsError}
-                          </p>
-                          {transactionsCanRetry && (
-                            <button
-                              onClick={() => fetchTransactions(selectedAccountId || undefined)}
-                              className="ml-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 underline"
-                            >
-                              Retry
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ) : recentTransactions.length === 0 ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">No transactions yet.</p>
-                    ) : (
-                      recentTransactions.map((tx) => {
-                        const kind = getTransactionKind(tx);
-                        const signedAmount =
-                          kind === "income" ? Math.abs(tx.amount) : kind === "transfer" ? tx.amount : -Math.abs(tx.amount);
-                        return (
-                          <div
-                            key={tx.id}
-                            className="flex items-center justify-between border border-gray-100 dark:border-gray-600 rounded-xl p-4"
-                          >
-                            <div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">{formatDateTime(tx.occurredAt || tx.createdAt)}</p>
-                              <p className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
-                                {tx.label || tx.categoryLabel || "Transaction"}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getAccountLabel(tx)}</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <p
-                                className={[
-                                  "text-base font-semibold",
-                                  signedAmount < 0 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400",
-                                ].join(" ")}
-                              >
-                                {signedAmount < 0 ? "-" : ""}
-                                {formatCurrency(Math.abs(signedAmount))}
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleEditTransaction(tx)}
-                                  className="p-2 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                  aria-label="Edit transaction"
-                                  type="button"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M11 5h2a2 2 0 012 2v2m-5 9H6a2 2 0 01-2-2v-6a2 2 0 012-2h2m9.414-1.586a2 2 0 00-2.828 0L9 14.172V17h2.828l6.586-6.586a2 2 0 000-2.828z"
-                                    />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteTransaction(tx.id)}
-                                  className="p-2 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                  aria-label="Delete transaction"
-                                  type="button"
-                                  disabled={isDeletingTransactionId === tx.id}
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M6 7h12m-9 4v6m6-6v6M9 7h6m-7 0h8a1 1 0 011 1v11a1 1 0 01-1 1H8a1 1 0 01-1-1V8a1 1 0 011-1zM10 4h4a1 1 0 011 1v2H9V5a1 1 0 011-1z"
-                                    />
-                                  </svg>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                  <div className="mt-4">
-                    <button
-                      onClick={() => setIsAddTransactionOpen(true)}
-                      className="w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-6 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                      type="button"
-                    >
-                      <span className="text-3xl">+</span>
-                      <span className="mt-2 text-sm font-medium">Add Transaction</span>
-                    </button>
-                  </div>
+                <div className="mt-8">
+                  <TransactionsSection
+                    transactions={recentTransactions}
+                    isLoading={isLoadingTransactions}
+                    error={displayTransactionsError}
+                    errorType={displayTransactionsErrorType}
+                    canRetry={displayTransactionsCanRetry}
+                    onRetry={handleTransactionsRetry}
+                    onEdit={handleEditTransaction}
+                    onDelete={handleDeleteTransaction}
+                    isDeletingId={isDeletingTransactionId}
+                    getAccountLabel={getAccountLabel}
+                    showViewAll
+                    showFooterAdd
+                    onAddTransaction={() => setIsAddTransactionOpen(true)}
+                  />
                 </div>
               </>
             )}
 
             {selectedAccount && (
               <div className="space-y-6">
-                <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      {(() => {
-                        const providerMeta = getProviderMeta(selectedAccount);
-                        const iconText =
-                          providerMeta?.label?.split(" ")[0][0] ||
-                          selectedAccount.providerLabel?.[0] ||
-                          selectedAccount.accountName?.[0] ||
-                          "A";
-                        const iconAccent = providerMeta?.accent || "bg-gray-400";
-                        return (
-                          <div
-                            className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold ${iconAccent}`}
-                          >
-                            {iconText.toUpperCase()}
-                          </div>
-                        );
-                      })()}
-                      <div>
-                        {isEditingAccountName ? (
-                          <input
-                            value={editAccountName}
-                            onChange={(event) => setEditAccountName(event.target.value)}
-                            className="text-lg font-semibold text-gray-900 dark:text-gray-100 bg-transparent border-b border-gray-300 dark:border-gray-500 focus:outline-none focus:border-gray-600 dark:focus:border-gray-400"
-                          />
-                        ) : (
-                          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                            {selectedAccount.accountName}
-                          </p>
-                        )}
-                        <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-gray-100">
-                          {formatCurrency(selectedAccount.currentBalance || 0)}
-                        </p>
-                      </div>
-                    </div>
-                    {isEditingAccountName ? (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleUpdateAccountName}
-                          className="px-4 py-2 rounded-full border border-gray-300 dark:border-gray-500 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsEditingAccountName(false);
-                            setEditAccountName(selectedAccount.accountName);
-                          }}
-                          className="px-4 py-2 rounded-full border border-transparent text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setIsEditingAccountName(true)}
-                        className="px-4 py-2 rounded-full border border-gray-300 dark:border-gray-500 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700"
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </div>
+                <EditAccountModal
+                  account={selectedAccount}
+                  isEditingName={isEditingAccountName}
+                  editName={editAccountName}
+                  onEditNameChange={setEditAccountName}
+                  onStartEdit={() => setIsEditingAccountName(true)}
+                  onSaveName={handleUpdateAccountName}
+                  onCancelEdit={() => {
+                    setIsEditingAccountName(false);
+                    setEditAccountName(selectedAccount.accountName);
+                  }}
+                  onToggleNetWorth={handleToggleNetWorth}
+                  getProviderMeta={getProviderMeta}
+                />
 
-                  <div className="mt-6 grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Goal amount</p>
-                      <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {formatCurrency(0)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Interest rate</p>
-                      <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {"--"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 bg-gray-900 dark:bg-black/30 rounded-2xl px-6 py-4 text-white">
-                    <p className="text-sm font-medium">Total Interest Earned</p>
-                    <div className="mt-3 grid grid-cols-2 gap-6 text-sm">
-                      <div>
-                        <p className="text-gray-300">Month</p>
-                        <p className="mt-1 font-semibold">₱0.00</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-300">Year</p>
-                        <p className="mt-1 font-semibold">₱0.00</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex items-center justify-between">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Add to Total Net Worth?</p>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleToggleNetWorth(true)}
-                        className={[
-                          "px-4 py-1.5 rounded-full text-sm font-semibold",
-                          selectedAccount.addToNetWorth
-                            ? "bg-lime-200 dark:bg-lime-600/40 text-lime-900 dark:text-lime-200"
-                            : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600",
-                        ].join(" ")}
-                      >
-                        Yes
-                      </button>
-                      <button
-                        onClick={() => handleToggleNetWorth(false)}
-                        className={[
-                          "px-4 py-1.5 rounded-full text-sm font-semibold",
-                          !selectedAccount.addToNetWorth
-                            ? "bg-lime-200 dark:bg-lime-600/40 text-lime-900 dark:text-lime-200"
-                            : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600",
-                        ].join(" ")}
-                      >
-                        No
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Transactions</h2>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => setIsAddTransactionOpen(true)}
-                        className="px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        type="button"
-                      >
-                        Add Transaction
-                      </button>
-                      <Link
-                        to="/transactions"
-                        className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                      >
-                        View all
-                      </Link>
-                    </div>
-                  </div>
-                  <div className="mt-4 space-y-4">
-                    {isLoadingTransactions ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Loading transactions...</p>
-                    ) : transactionsError ? (
-                      <div className={`p-3 rounded-lg ${
-                        transactionsErrorType === ErrorType.NETWORK || transactionsErrorType === ErrorType.SERVER
-                          ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
-                          : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-                      }`}>
-                        <div className="flex items-start justify-between">
-                          <p className={`text-sm font-medium ${
-                            transactionsErrorType === ErrorType.NETWORK || transactionsErrorType === ErrorType.SERVER
-                              ? 'text-yellow-800 dark:text-yellow-200'
-                              : 'text-red-600 dark:text-red-400'
-                          }`}>
-                            {transactionsError}
-                          </p>
-                          {transactionsCanRetry && (
-                            <button
-                              onClick={() => fetchTransactions(selectedAccountId || undefined)}
-                              className="ml-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 underline"
-                            >
-                              Retry
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ) : recentTransactions.length === 0 ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">No transactions yet.</p>
-                    ) : (
-                      recentTransactions.map((tx) => {
-                        const kind = getTransactionKind(tx);
-                        const signedAmount =
-                          kind === "income" ? Math.abs(tx.amount) : kind === "transfer" ? tx.amount : -Math.abs(tx.amount);
-                        return (
-                          <div
-                            key={tx.id}
-                            className="flex items-center justify-between border border-gray-100 dark:border-gray-600 rounded-xl p-4"
-                          >
-                            <div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">{formatDateTime(tx.occurredAt || tx.createdAt)}</p>
-                              <p className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
-                                {tx.label || tx.categoryLabel || "Transaction"}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getAccountLabel(tx)}</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <p
-                                className={[
-                                  "text-base font-semibold",
-                                  signedAmount < 0 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400",
-                                ].join(" ")}
-                              >
-                                {signedAmount < 0 ? "-" : ""}
-                                {formatCurrency(Math.abs(signedAmount))}
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleEditTransaction(tx)}
-                                  className="p-2 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                  aria-label="Edit transaction"
-                                  type="button"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M11 5h2a2 2 0 012 2v2m-5 9H6a2 2 0 01-2-2v-6a2 2 0 012-2h2m9.414-1.586a2 2 0 00-2.828 0L9 14.172V17h2.828l6.586-6.586a2 2 0 000-2.828z"
-                                    />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteTransaction(tx.id)}
-                                  className="p-2 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                  aria-label="Delete transaction"
-                                  type="button"
-                                  disabled={isDeletingTransactionId === tx.id}
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M6 7h12m-9 4v6m6-6v6M9 7h6m-7 0h8a1 1 0 011 1v11a1 1 0 01-1 1H8a1 1 0 01-1-1V8a1 1 0 011-1zM10 4h4a1 1 0 011 1v2H9V5a1 1 0 011-1z"
-                                    />
-                                  </svg>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
+                <TransactionsSection
+                  transactions={transactions}
+                  isLoading={isLoadingTransactions}
+                  error={displayTransactionsError}
+                  errorType={displayTransactionsErrorType}
+                  canRetry={displayTransactionsCanRetry}
+                  onRetry={handleTransactionsRetry}
+                  onEdit={handleEditTransaction}
+                  onDelete={handleDeleteTransaction}
+                  isDeletingId={isDeletingTransactionId}
+                  getAccountLabel={getAccountLabel}
+                  showViewAll
+                  showHeaderAdd
+                  onAddTransaction={() => setIsAddTransactionOpen(true)}
+                />
 
                 <div className="flex justify-center">
                   <button
@@ -1087,230 +639,48 @@ export default function DashboardPage() {
         />
       ) : null}
 
-      {isAddAccountOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 px-4">
-          <div className="w-full max-w-xl bg-gray-100 dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between px-6 py-5 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-3">
-                {addAccountStep === "form" ? (
-                  <button
-                    onClick={() => setAddAccountStep("selectProvider")}
-                    className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
-                    aria-label="Back to account list"
-                  >
-                    <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                ) : null}
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Add Account</h2>
-              </div>
-              <button
-                onClick={closeAddAccount}
-                className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
-                aria-label="Close add account"
-              >
-                <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {addAccountStep === "selectProvider" && (
-              <div className="px-6 pb-6">
-                {isLoadingAccountTypes ? (
-                  <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">Loading account types...</p>
-                ) : accountTypesError ? (
-                  <p className="mb-3 text-sm text-yellow-700 dark:text-yellow-300">
-                    Using default account types. Some options may be limited.
-                  </p>
-                ) : null}
-                <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-2 flex gap-2 mb-5 overflow-x-auto">
-                  {addAccountTabs.map((tab) => (
-                    <button
-                      key={tab.value}
-                      onClick={() => {
-                        setSelectedAddType(tab.value);
-                        setIsCustomAccount(false);
-                        setIsCreatingCustomProvider(false);
-                        setCustomProviderLabel("");
-                        setCustomProviderError(null);
-                      }}
-                      className={[
-                        "px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap",
-                        selectedAddType === tab.value
-                          ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
-                          : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200",
-                      ].join(" ")}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 max-h-[420px] overflow-y-auto">
-                  <div className="space-y-3">
-                    {visibleProviders.map((provider) => (
-                      <button
-                        key={provider.id}
-                        onClick={() => handleSelectProvider(provider)}
-                        className="w-full flex items-center gap-3 bg-gray-100 dark:bg-gray-600 rounded-2xl px-4 py-3 text-left hover:bg-white dark:hover:bg-gray-500"
-                      >
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold ${provider.accent}`}
-                        >
-                          {provider.label.split(" ")[0][0]}
-                        </div>
-                        <span className="text-base text-gray-800 dark:text-gray-200">{provider.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-4">
-                  {isCreatingCustomProvider ? (
-                    <div className="bg-white dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 p-4 space-y-3">
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        Custom account name
-                      </label>
-                      <input
-                        type="text"
-                        value={customProviderLabel}
-                        onChange={(event) => setCustomProviderLabel(event.target.value)}
-                        placeholder="e.g., My Custom Account"
-                        className="w-full text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
-                      />
-                      {customProviderError ? (
-                        <div className={`p-3 rounded-lg ${
-                          customProviderErrorType === ErrorType.NETWORK || customProviderErrorType === ErrorType.SERVER
-                            ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
-                            : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-                        }`}>
-                          <div className="flex items-start justify-between">
-                            <p className={`text-sm font-medium ${
-                              customProviderErrorType === ErrorType.NETWORK || customProviderErrorType === ErrorType.SERVER
-                                ? 'text-yellow-800 dark:text-yellow-200'
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              {customProviderError}
-                            </p>
-                            {customProviderCanRetry && (
-                              <button
-                                type="button"
-                                onClick={handleCreateCustomProvider}
-                                className="ml-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 underline"
-                              >
-                                Retry
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ) : null}
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={handleCreateCustomProvider}
-                          disabled={!customProviderLabel.trim() || isSavingCustomProvider}
-                          className="px-4 py-2 rounded-xl bg-lime-300 dark:bg-lime-600 text-gray-900 dark:text-gray-100 text-sm font-semibold disabled:opacity-60"
-                        >
-                          {isSavingCustomProvider ? "Saving..." : "Create Account"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsCreatingCustomProvider(false);
-                            setCustomProviderLabel("");
-                            setCustomProviderError(null);
-                          }}
-                          className="px-4 py-2 rounded-xl bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setIsCreatingCustomProvider(true)}
-                      className="w-full px-4 py-3 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      Add custom account
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {addAccountStep === "form" && (
-              <div className="px-6 pb-8">
-                <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl px-4 py-4 flex items-center gap-3 mb-6">
-                  <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold ${
-                      selectedProvider?.accent || "bg-gray-400"
-                    }`}
-                  >
-                    {selectedProvider?.label?.split(" ")[0][0] || "A"}
-                  </div>
-                  <span className="text-base text-gray-800 dark:text-gray-200">
-                    {selectedProvider?.label || "Selected Account"}
-                  </span>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="bg-white dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 p-4">
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      {isCustomAccount ? "Account name" : `${selectedAddType} name`}
-                    </label>
-                    <input
-                      type="text"
-                      value={accountName}
-                      onChange={(event) => setAccountName(event.target.value)}
-                      placeholder={selectedAddType === "Wallet" ? "Daily Expenses" : "Account name"}
-                      className="w-full text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
-                    />
-                  </div>
-                  <div className="bg-white dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 p-4">
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Current account balance
-                    </label>
-                    <div className="flex items-center gap-2 text-base text-gray-800 dark:text-gray-100">
-                      <span>₱</span>
-                      <input
-                        type="number"
-                        value={accountBalance}
-                        onChange={(event) => setAccountBalance(event.target.value)}
-                        placeholder="0.00"
-                        className="w-full focus:outline-none bg-transparent"
-                      />
-                    </div>
-                  </div>
-                  <div className="bg-white dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Add to Total Net Worth</span>
-                    <button
-                      type="button"
-                      onClick={() => setAccountAddToNetWorth((prev) => !prev)}
-                      className={[
-                        "px-4 py-1.5 rounded-full text-sm font-semibold",
-                        accountAddToNetWorth
-                          ? "bg-lime-200 dark:bg-lime-600/40 text-lime-900 dark:text-lime-200"
-                          : "bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-500",
-                      ].join(" ")}
-                    >
-                      {accountAddToNetWorth ? "Yes" : "No"}
-                    </button>
-                  </div>
-                  <button
-                    onClick={handleAddAccount}
-                    className="w-full bg-lime-300 dark:bg-lime-600 text-gray-900 dark:text-gray-100 text-base font-semibold rounded-2xl py-3 hover:bg-lime-400 dark:hover:bg-lime-500 disabled:opacity-60 disabled:cursor-not-allowed"
-                    type="button"
-                    disabled={!accountName.trim()}
-                  >
-                    Add Account
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <AddAccountModal
+        isOpen={isAddAccountOpen}
+        addAccountStep={addAccountStep}
+        onBack={() => setAddAccountStep("selectProvider")}
+        onClose={closeAddAccount}
+        isLoadingAccountTypes={isLoadingAccountTypes}
+        accountTypesError={accountTypesError}
+        addAccountTabs={addAccountTabs}
+        selectedAddType={selectedAddType}
+        onSelectAddType={(value) => {
+          setSelectedAddType(value);
+          setIsCustomAccount(false);
+          setIsCreatingCustomProvider(false);
+          setCustomProviderLabel("");
+          setCustomProviderError(null);
+        }}
+        visibleProviders={visibleProviders}
+        onSelectProvider={handleSelectProvider}
+        isCreatingCustomProvider={isCreatingCustomProvider}
+        customProviderLabel={customProviderLabel}
+        onCustomProviderLabelChange={setCustomProviderLabel}
+        customProviderError={customProviderError}
+        customProviderErrorType={customProviderErrorType}
+        customProviderCanRetry={customProviderCanRetry}
+        onCreateCustomProvider={handleCreateCustomProvider}
+        isSavingCustomProvider={isSavingCustomProvider}
+        onStartCustomProvider={() => setIsCreatingCustomProvider(true)}
+        onCancelCustomProvider={() => {
+          setIsCreatingCustomProvider(false);
+          setCustomProviderLabel("");
+          setCustomProviderError(null);
+        }}
+        selectedProvider={selectedProvider}
+        accountName={accountName}
+        onAccountNameChange={setAccountName}
+        accountBalance={accountBalance}
+        onAccountBalanceChange={setAccountBalance}
+        accountAddToNetWorth={accountAddToNetWorth}
+        onToggleAddToNetWorth={() => setAccountAddToNetWorth((prev) => !prev)}
+        isCustomAccount={isCustomAccount}
+        onSubmitAccount={handleAddAccount}
+      />
     </div>
   );
 }
