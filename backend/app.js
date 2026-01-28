@@ -18,9 +18,35 @@ dotenv.config();
 
 const app = express();
 
+// Trust Render's proxy so secure cookies work behind HTTPS
+app.set('trust proxy', 1);
+
+const getAllowedOrigins = () => {
+  const rawOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.CORS_ORIGINS,
+    'http://localhost:5173',
+  ]
+    .filter(Boolean)
+    .join(',');
+  return new Set(
+    rawOrigins
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+  );
+};
+
+const allowedOrigins = getAllowedOrigins();
+
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 

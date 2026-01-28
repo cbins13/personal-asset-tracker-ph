@@ -2,7 +2,13 @@ import { parseApiError, ErrorType } from './errorMessages';
 import { withRetry } from './retry';
 import { apiCache } from './apiCache';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? '' : 'http://localhost:5002/api');
+
+if (!API_BASE_URL) {
+  throw new Error('VITE_API_URL is not set');
+}
 
 interface ApiResponse<T = any> {
   success: boolean;
